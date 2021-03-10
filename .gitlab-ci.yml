@@ -20,7 +20,7 @@ language-dtrace:
     paths:
       - dist-newstyle/
   script:
-    - ghcup install ghc --platform x86_64-deb8-linux $GHCVER
+    - ghcup install ghc --platform x86_64-deb8-linux $GHCVER --verbose
     - cp cabal.project.dist cabal.project
     - cabal update
     - cabal configure -w ghc-$GHCVER --enable-tests pkg:language-dtrace
