@@ -3,7 +3,7 @@ default:
   before_script:
     - apt update
     - DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends tzdata
-    - apt install -y software-properties-common wget unzip openssh-client git zlib1g-dev
+    - apt install -y software-properties-common wget unzip openssh-client git zlib1g-dev curl
     - mkdir -p $HOME/.ghcup/bin
     - export PATH=$HOME/.ghcup/bin:$PATH
     - wget https://downloads.haskell.org/~ghcup/0.1.14/x86_64-linux-ghcup-0.1.14 -O $HOME/.ghcup/bin/ghcup
