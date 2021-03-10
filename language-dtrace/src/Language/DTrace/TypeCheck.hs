@@ -123,15 +123,15 @@ resetLocals (State pstate) =
                }
 
 -- | Records a newly-translated probe and reset the local translation state
-recordProbe :: ST.Probe globals -> State -> State
-recordProbe p (State pstate) =
-  State PState { globalVars = globalVars pstate
-               , globalMap = globalMap pstate
-               , translatedProbes = translatedProbes pstate Seq.|> unsafeCoerce p
-               , localVars = Ctx.empty
-               , localMap = Map.empty
-               , probeStmts = mempty
-               }
+recordProbe :: ST.Probe globals -> PState globals locals -> PState globals Ctx.EmptyCtx
+recordProbe p pstate =
+  PState { globalVars = globalVars pstate
+         , globalMap = globalMap pstate
+         , translatedProbes = translatedProbes pstate Seq.|> p
+         , localVars = Ctx.empty
+         , localMap = Map.empty
+         , probeStmts = mempty
+         }
 
 addGlobal :: T.Text -> ST.Repr tp -> State -> State
 addGlobal varName varRepr (State pstate) =
@@ -201,7 +201,7 @@ allocateImplicitGlobals tu =
       return (LDL.Located range (SU.Expr app'))
 
 translateStatement :: LDL.Located SU.Stmt -> TC ()
-translateStatement = undefined
+translateStatement stmt = return ()
 
 checkProbe :: SU.TopLevel -> TC ()
 checkProbe tu =
@@ -216,7 +216,7 @@ checkProbe tu =
       let true = ST.Expr (ST.LitBool True)
       let patterns = fmap LDL.value (SU.probePatterns (LDL.value p))
       let translatedProbe = ST.Probe patterns true (localVars s) (F.toList (probeStmts s))
-      RWS.modify' (recordProbe translatedProbe)
+      RWS.put (State (recordProbe translatedProbe s))
 
 doTypeCheck :: [SU.TopLevel] -> TC ()
 doTypeCheck topLevels = do
@@ -224,9 +224,10 @@ doTypeCheck topLevels = do
   mapM_ allocateImplicitGlobals topLevels
   mapM_ checkProbe topLevels
 
+-- | Type check definitions from the untyped AST into a typed AST with safe variable references (or errors)
 typeCheck :: [SU.TopLevel] -> Either [TypeError] ST.Probes
 typeCheck topLevels =
   case RWS.execRWS (unTC (doTypeCheck topLevels)) () emptyState of
     (State finalPState, errs)
-      | Seq.null errs -> Right (ST.Probes (globalVars finalPState) [])
+      | Seq.null errs -> Right (ST.Probes (globalVars finalPState) (F.toList (translatedProbes finalPState)))
       | otherwise -> Left (F.toList errs)
