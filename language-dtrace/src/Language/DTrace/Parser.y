@@ -31,7 +31,7 @@ import qualified Language.DTrace.Token as DT
 %token
   INTLIT { (intLitPos -> Just $$ ) }
   STRINGLIT { (stringLitPos -> Just $$) }
-  IDENTIFIER { (stringLitPos -> Just $$) }
+  IDENTIFIER { (identPos -> Just $$) }
   INT { LDLW.Lexeme _ DT.INT _ }
   FLOAT { LDLW.Lexeme _ DT.FLOAT _ }
   DOUBLE { LDLW.Lexeme _ DT.DOUBLE _ }
@@ -235,6 +235,12 @@ stringLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, T.Text)
 stringLitPos l =
   case LDLW.lexemeToken l of
     DT.STRINGLIT t -> Just (l, t)
+    _ -> Nothing
+
+identPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, T.Text)
+identPos l =
+  case LDLW.lexemeToken l of
+    DT.IDENT t -> Just (l, t)
     _ -> Nothing
 
 lexer :: (LDLW.Lexeme DT.Token -> DM.ParseM a)

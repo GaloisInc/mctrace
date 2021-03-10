@@ -89,6 +89,8 @@ tokens :-
   $digit+           { readToken TR.decimal (DT.INTLIT DT.Decimal) }
   0x $hexdigit+     { readToken TR.hexadecimal (DT.INTLIT DT.Hexadecimal) }
 
+  $alpha [$alpha $digit \_]* { readToken (\t -> return (t, mempty)) DT.IDENT }
+
   <comment> [\/][\/] .+ ;
   <comment> [\n]         { popStartCode StartCodeError >> skip }
 
