@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 module Language.DTrace.TypeCheck (
@@ -29,8 +30,12 @@ data TypeErrorMessage where
   IndeterminateInitializerType :: SU.Expr -> TypeErrorMessage
   TypeErrorMessage :: TypeErrorMessage
 
+deriving instance Show TypeErrorMessage
+
 data TypeError where
   TypeError :: LDL.SourceRange -> TypeErrorMessage -> TypeError
+
+deriving instance Show TypeError
 
 typeError :: (LDL.HasRange a) => a -> TypeErrorMessage -> TypeError
 typeError loc = TypeError (LDL.range loc)
