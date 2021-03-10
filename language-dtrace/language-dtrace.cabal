@@ -19,17 +19,17 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     Language.DTrace
+                       Language.DTrace.ProbeDescription
+                       Language.DTrace.Syntax.Typed
+                       Language.DTrace.Syntax.Untyped
   other-modules:       Language.DTrace.Lexer
                        Language.DTrace.LexerWrapper
                        Language.DTrace.Parser
                        Language.DTrace.Parser.Monad
-                       Language.DTrace.ProbeDescription
-                       Language.DTrace.Syntax.Typed
-                       Language.DTrace.Syntax.Untyped
                        Language.DTrace.Token
                        Language.DTrace.TypeCheck
-  build-tools:         alex,
-                       happy
+  build-tool-depends:  alex:alex,
+                       happy:happy
   build-depends:       base >=4.11.1.0 && < 5,
                        array,
                        containers,
@@ -44,3 +44,20 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat
+
+test-suite dtrace-tests
+  default-language: Haskell2010
+  ghc-options: -Wall -Wcompat
+  hs-source-dirs: tests
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  build-depends: base,
+                 bytestring,
+                 containers,
+                 filemanip,
+                 filepath,
+                 parameterized-utils,
+                 tasty >= 1.3 && < 1.5,
+                 tasty-hunit >= 0.9 && < 0.11,
+                 text,
+                 language-dtrace

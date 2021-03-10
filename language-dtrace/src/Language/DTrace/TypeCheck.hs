@@ -230,9 +230,9 @@ doTypeCheck topLevels = do
   mapM_ checkProbe topLevels
 
 -- | Type check definitions from the untyped AST into a typed AST with safe variable references (or errors)
-typeCheck :: [SU.TopLevel] -> Either [TypeError] ST.Probes
-typeCheck topLevels =
+typeCheck :: [LDL.Located SU.TopLevel] -> Either [TypeError] ST.Probes
+typeCheck (fmap LDL.value -> topLevels) =
   case RWS.execRWS (unTC (doTypeCheck topLevels)) () emptyState of
     (State finalPState, errs)
-      | Seq.null errs -> Right (ST.Probes (globalVars finalPState) (F.toList (translatedProbes finalPState)))
+      | Seq.null errs -> Right (ST.Probes (globalVars finalPState) (globalMap finalPState) (F.toList (translatedProbes finalPState)))
       | otherwise -> Left (F.toList errs)

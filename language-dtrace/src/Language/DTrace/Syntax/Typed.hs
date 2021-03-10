@@ -19,9 +19,11 @@ module Language.DTrace.Syntax.Typed (
 import qualified Data.BitVector.Sized as DBS
 import qualified Data.Kind as DK
 import qualified Data.List.NonEmpty as DLN
+import qualified Data.Map as Map
 import qualified Data.Parameterized.Classes as PC
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
+import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Parameterized.TH.GADT as PTH
 import qualified Data.Text as T
 import           GHC.TypeLits ( Nat )
@@ -144,4 +146,7 @@ data Probe globals where
         -> Probe globals
 
 data Probes where
-  Probes :: Ctx.Assignment Variable globals -> [Probe globals] -> Probes
+  Probes :: Ctx.Assignment Variable globals
+         -> Map.Map T.Text (Some (Ctx.Index globals))
+         -> [Probe globals]
+         -> Probes
