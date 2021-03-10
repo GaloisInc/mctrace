@@ -1,0 +1,32 @@
+default:
+  image: ubuntu:20.04
+  before_script:
+    - apt update
+    - DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends tzdata
+    - apt install -y software-properties-common wget unzip openssh-client git zlib1g-dev
+    - mkdir -p $HOME/.ghcup/bin
+    - export PATH=$HOME/.ghcup/bin:$PATH
+    - wget https://downloads.haskell.org/~ghcup/0.1.14/x86_64-linux-ghcup-0.1.14 -O $HOME/.ghcup/bin/ghcup
+    - chmod +x $HOME/.ghcup/bin/ghcup
+    - ghcup install cabal
+
+
+
+language-dtrace:
+  tags:
+    - docker
+  cache:
+    key: ${CI_JOB_NAME}-${GHCVER}
+    paths:
+      - dist-newstyle/
+  script:
+    - ghcup install ghc $GHCVER
+    - cp cabal.project.dist cabal.project
+    - cabal update
+    - cabal configure -w ghc-$GHCVER --enable-tests pkg:language-dtrace
+    - cabal build pkg:language-dtrace
+    - cabal test pkg:language-dtrace
+  parallel:
+    matrix:
+      - GHCVER: [8.6.5, 8.8.4, 8.10.4]
+        CABALVER: [1]
