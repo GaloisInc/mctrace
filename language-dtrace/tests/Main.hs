@@ -20,6 +20,8 @@ import qualified Language.DTrace.Syntax.Typed as LDT
 
 data DType = BoolType
            | BVType Natural
+           | FloatType
+           | DoubleType
            | StringType
            deriving (Read, Show)
 
@@ -39,6 +41,8 @@ expectedType dt rep =
     (BoolType, LDT.BoolRepr) -> True
     (StringType, LDT.StringRepr) -> True
     (BVType n, LDT.BVRepr nr) -> n == PN.natValue nr
+    (FloatType, LDT.FloatRepr LDT.SinglePrecRepr) -> True
+    (DoubleType, LDT.FloatRepr LDT.DoublePrecRepr) -> True
     _ -> False
 
 mkTypecheckTest :: FilePath -> TT.TestTree

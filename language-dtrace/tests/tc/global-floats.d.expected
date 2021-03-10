@@ -1,0 +1,4 @@
+Expected { globals = [ ("f", FloatType)
+                     , ("d", DoubleType)
+                     ]
+         }
