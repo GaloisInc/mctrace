@@ -45,6 +45,7 @@ data App f where
   LitInt :: DT.NumericLiteralFormat -> Natural -> App f
   LitString :: T.Text -> App f
   LitDouble :: T.Text -> Double -> App f
+  LitFloat :: T.Text -> Float -> App f
   VarRef :: T.Text -> App f
   FieldRef :: f -> T.Text -> App f
 
@@ -115,6 +116,7 @@ traverseExpr f app =
     LitInt nlf n -> pure (LitInt nlf n)
     LitString t -> pure (LitString t)
     LitDouble t d -> pure (LitDouble t d)
+    LitFloat t fl -> pure (LitFloat t fl)
     VarRef t -> pure (VarRef t)
     FieldRef e t -> FieldRef <$> f e <*> pure t
 

@@ -1,0 +1,2 @@
+Expected { globals = [("global_float", FloatType)]
+         }
