@@ -67,6 +67,7 @@ tokens :-
 
   [\!]              { token DT.EXCLAMATION }
   [\~]              { token DT.TILDE }
+  [\:]              { token DT.COLON }
 
   [\&]              { token DT.AMPERSAND }
   [\^]              { token DT.CARET }
