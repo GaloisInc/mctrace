@@ -1,0 +1,2 @@
+Expected { globals = [("global_int", BVType 32)]
+         }
