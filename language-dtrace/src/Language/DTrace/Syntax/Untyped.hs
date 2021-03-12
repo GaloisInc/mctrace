@@ -44,6 +44,7 @@ data App f where
   Self :: App f
   LitInt :: DT.NumericLiteralFormat -> Natural -> App f
   LitString :: T.Text -> App f
+  LitDouble :: T.Text -> Double -> App f
   VarRef :: T.Text -> App f
   FieldRef :: f -> T.Text -> App f
 
@@ -113,6 +114,7 @@ traverseExpr f app =
     Self -> pure Self
     LitInt nlf n -> pure (LitInt nlf n)
     LitString t -> pure (LitString t)
+    LitDouble t d -> pure (LitDouble t d)
     VarRef t -> pure (VarRef t)
     FieldRef e t -> FieldRef <$> f e <*> pure t
 

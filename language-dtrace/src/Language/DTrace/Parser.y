@@ -31,6 +31,7 @@ import qualified Language.DTrace.Token as DT
 
 %token
   INTLIT { (intLitPos -> Just $$ ) }
+  DOUBLELIT { (doubleLitPos -> Just $$) }
   STRINGLIT { (stringLitPos -> Just $$) }
   IDENTIFIER { (identPos -> Just $$) }
   INT { LDLW.Lexeme _ DT.INT _ }
@@ -158,6 +159,7 @@ Factor : Literal { $1 }
 Literal :: { LDLW.Located DS.Expr }
 Literal : INTLIT {% mkE [intLitToken $1] (DS.LitInt (intLitFormat $1) (intLitValue $1)) }
         | STRINGLIT {% mkE [fst $1] (DS.LitString (snd $1)) }
+        | DOUBLELIT {% mkE [fpLitToken $1] (DS.LitDouble (fpLitText $1) (fpLitValue $1)) }
 
 Type :: { LDLW.Located DS.Type }
 Type : INT {% mkT [$1] DS.IntTy }
@@ -240,6 +242,19 @@ intLitPos l =
   case LDLW.lexemeToken l of
     DT.INTLIT litFmt n -> Just (IntLit l litFmt n)
     _ -> Nothing
+
+data FPLit f = FPLit { fpLitToken :: LDLW.Lexeme DT.Token
+                     , fpLitText :: T.Text
+                     , fpLitValue :: f
+                     }
+  
+
+doubleLitPos :: LDLW.Lexeme DT.Token -> Maybe (FPLit Double)
+doubleLitPos l =
+  case LDLW.lexemeToken l of
+    DT.DOUBLELIT t d -> Just (FPLit l t d)
+    _ -> Nothing
+    
 
 stringLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, T.Text)
 stringLitPos l =

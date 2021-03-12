@@ -89,6 +89,7 @@ tokens :-
 
   $digit+           { readToken TR.decimal (DT.INTLIT DT.Decimal) }
   0x $hexdigit+     { readToken TR.hexadecimal (DT.INTLIT DT.Hexadecimal) }
+  $digit+ \. $digit+ { readToken readFloat (uncurry DT.DOUBLELIT) }
 
   $alpha [$alpha $digit \_]* { readToken (\t -> return (t, mempty)) DT.IDENT }
 
@@ -101,6 +102,11 @@ tokens :-
 
 type AlexUserState = ()
 alexInitUserState = ()
+
+readFloat :: TR.Reader (T.Text, Double)
+readFloat t = do
+  (d, t') <- TR.double t
+  return ((t, d), t')
 
 readToken :: TR.Reader a
           -> (a -> DT.Token)

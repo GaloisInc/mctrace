@@ -107,6 +107,7 @@ typeOfExpr e =
     SU.Self -> Nothing
     SU.LitInt {} -> Just (Some (ST.BVRepr (PN.knownNat @32)))
     SU.LitString {} -> Just (Some ST.StringRepr)
+    SU.LitDouble {} -> Just (Some (ST.FloatRepr ST.DoublePrecRepr))
     SU.Cast (LDL.Located _loc t) _ -> Just (typeRepr t)
     SU.Ternary _ e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
 

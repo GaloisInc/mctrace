@@ -13,8 +13,8 @@ data NumericLiteralFormat = Decimal
 
 data Token = STRINGLIT T.Text
            | INTLIT NumericLiteralFormat Natural
-           | FLOATLIT Float
-           | DOUBLELIT Double
+           | FLOATLIT T.Text Float
+           | DOUBLELIT T.Text Double
            | IDENT T.Text
            | CHAR
            | SHORT
