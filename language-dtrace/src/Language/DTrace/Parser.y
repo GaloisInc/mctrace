@@ -33,11 +33,20 @@ import qualified Language.DTrace.Token as DT
   INTLIT { (intLitPos -> Just $$ ) }
   DOUBLELIT { (doubleLitPos -> Just $$) }
   FLOATLIT { (floatLitPos -> Just $$) }
+  LONGLIT { (longLitPos -> Just $$) }
+  ULONGLIT { (ulongLitPos -> Just $$) }
+  LONGLONGLIT { (longLongLitPos -> Just $$) }
+  ULONGLONGLIT   { (ulongLongLitPos -> Just $$) }
   STRINGLIT { (stringLitPos -> Just $$) }
   IDENTIFIER { (identPos -> Just $$) }
   INT { LDLW.Lexeme _ DT.INT _ }
   FLOAT { LDLW.Lexeme _ DT.FLOAT _ }
   DOUBLE { LDLW.Lexeme _ DT.DOUBLE _ }
+  LONG { LDLW.Lexeme _ DT.LONG _ }
+  SHORT { LDLW.Lexeme _ DT.SHORT _ }
+  CHAR { LDLW.Lexeme _ DT.CHAR _ }
+  STRING { LDLW.Lexeme _ DT.STRING _ }
+  UNSIGNED { LDLW.Lexeme _ DT.UNSIGNED _ }
   ARROW { LDLW.Lexeme _ DT.ARROW _ }
   SELF { LDLW.Lexeme _ DT.SELF _ }
   THIS { LDLW.Lexeme _ DT.THIS _ }
@@ -162,11 +171,22 @@ Literal : INTLIT {% mkE [intLitToken $1] (DS.LitInt (intLitFormat $1) (intLitVal
         | STRINGLIT {% mkE [fst $1] (DS.LitString (snd $1)) }
         | DOUBLELIT {% mkE [fpLitToken $1] (DS.LitDouble (fpLitText $1) (fpLitValue $1)) }
         | FLOATLIT {% mkE [fpLitToken $1] (DS.LitFloat (fpLitText $1) (fpLitValue $1)) }
+        | LONGLIT {% mkE [fst $1] (DS.LitLong (snd $1)) }
+        | ULONGLIT {% mkE [fst $1] (DS.LitULong (snd $1)) }
+        | LONGLONGLIT {% mkE [fst $1] (DS.LitLongLong (snd $1)) }
+        | ULONGLONGLIT {% mkE [fst $1] (DS.LitULongLong (snd $1)) }
 
 Type :: { LDLW.Located DS.Type }
 Type : INT {% mkT [$1] DS.IntTy }
      | DOUBLE {% mkT [$1] DS.DoubleTy }
      | FLOAT {% mkT [$1] DS.FloatTy }
+     | STRING {% mkT [$1] DS.StringTy }
+     | CHAR {% mkT [$1] DS.CharTy }
+     | SHORT {% mkT [$1] DS.ShortTy }
+     | LONG {% mkT [$1] DS.LongTy }
+     | UNSIGNED LONG {% mkT [$1, $2] DS.ULongTy }
+     | LONG LONG {% mkT [$1, $2] DS.LongLongTy }
+     | UNSIGNED LONG LONG {% mkT [$1, $3] DS.ULongLongTy }
 
 Stmt :: { LDLW.Located DS.Stmt }
 Stmt : Expr SEMI {% mkS [$1] (DS.ExprStmt $1) }
@@ -262,6 +282,31 @@ floatLitPos l =
   case LDLW.lexemeToken l of
     DT.FLOATLIT t f -> Just (FPLit l t f)
     _ -> Nothing
+
+longLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, Natural)
+longLitPos l =
+  case LDLW.lexemeToken l of
+    DT.LONGLIT n -> Just (l, n)
+    _ -> Nothing
+
+ulongLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, Natural)
+ulongLitPos l =
+  case LDLW.lexemeToken l of
+    DT.ULONGLIT n -> Just (l, n)
+    _ -> Nothing
+
+longLongLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, Natural)
+longLongLitPos l =
+  case LDLW.lexemeToken l of
+    DT.LONGLONGLIT n -> Just (l, n)
+    _ -> Nothing
+
+ulongLongLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, Natural)
+ulongLongLitPos l =
+  case LDLW.lexemeToken l of
+    DT.ULONGLONGLIT n -> Just (l, n)
+    _ -> Nothing
+
 
 stringLitPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, T.Text)
 stringLitPos l =

@@ -31,6 +31,8 @@ data Type where
   UnsignedTy :: Type
   LongTy :: Type
   LongLongTy :: Type
+  ULongTy :: Type
+  ULongLongTy :: Type
   StringTy :: Type
   FloatTy :: Type
   DoubleTy :: Type
@@ -43,6 +45,10 @@ data App f where
   This :: App f
   Self :: App f
   LitInt :: DT.NumericLiteralFormat -> Natural -> App f
+  LitLong :: Natural -> App f
+  LitULong :: Natural -> App f
+  LitLongLong :: Natural -> App f
+  LitULongLong :: Natural -> App f
   LitString :: T.Text -> App f
   LitDouble :: T.Text -> Double -> App f
   LitFloat :: T.Text -> Float -> App f
@@ -114,6 +120,10 @@ traverseExpr f app =
     This -> pure This
     Self -> pure Self
     LitInt nlf n -> pure (LitInt nlf n)
+    LitLong n -> pure (LitLong n)
+    LitULong n -> pure (LitULong n)
+    LitLongLong n -> pure (LitLongLong n)
+    LitULongLong n -> pure (LitULongLong n)
     LitString t -> pure (LitString t)
     LitDouble t d -> pure (LitDouble t d)
     LitFloat t fl -> pure (LitFloat t fl)

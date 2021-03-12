@@ -89,15 +89,24 @@ tokens :-
 
   $digit+           { readToken TR.decimal (DT.INTLIT DT.Decimal) }
   0x $hexdigit+     { readToken TR.hexadecimal (DT.INTLIT DT.Hexadecimal) }
+  $digit+ l         { readToken TR.decimal DT.LONGLIT }
+  $digit+ L         { readToken TR.decimal DT.LONGLIT }
+  $digit+ ul        { readToken TR.decimal DT.ULONGLIT }
+  $digit+ UL        { readToken TR.decimal DT.ULONGLIT }
+  $digit+ ll        { readToken TR.decimal DT.LONGLONGLIT }
+  $digit+ LL        { readToken TR.decimal DT.LONGLONGLIT }
+  $digit+ ull       { readToken TR.decimal DT.ULONGLONGLIT }
+  $digit+ ULL       { readToken TR.decimal DT.ULONGLONGLIT }
   $digit+ \. $digit+ { readToken readDouble (uncurry DT.DOUBLELIT) }
   $digit+ \. $digit+ f { readToken readFloat (uncurry DT.FLOATLIT) }
 
   $alpha [$alpha $digit \_]* { readToken (\t -> return (t, mempty)) DT.IDENT }
 
-  <comment> [\/][\/] .+ ;
+  [\/][\/]           { pushStartCode comment >> skip }
+  <comment> .+ ;
   <comment> [\n]         { popStartCode StartCodeError >> skip }
 
-  $white+           ;
+  <0> $white+           ;
 
 {
 

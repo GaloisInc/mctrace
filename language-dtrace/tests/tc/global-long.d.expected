@@ -1,0 +1,6 @@
+Expected { globals = [ ("x", BVType 64)
+                     , ("lx", BVType 64)
+                     , ("y", BVType 64)
+                     , ("ly", BVType 64)
+                     ]
+         }

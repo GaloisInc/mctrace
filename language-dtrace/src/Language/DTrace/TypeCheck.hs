@@ -91,7 +91,9 @@ typeRepr ty =
     SU.SignedTy -> Some (ST.BVRepr (PN.knownNat @32))
     SU.UnsignedTy -> Some (ST.BVRepr (PN.knownNat @32))
     SU.LongTy -> Some (ST.BVRepr (PN.knownNat @64))
+    SU.ULongTy -> Some (ST.BVRepr (PN.knownNat @64))
     SU.LongLongTy -> Some (ST.BVRepr (PN.knownNat @64))
+    SU.ULongLongTy -> Some (ST.BVRepr (PN.knownNat @64))
     SU.FloatTy -> Some (ST.FloatRepr ST.SinglePrecRepr)
     SU.DoubleTy -> Some (ST.FloatRepr ST.DoublePrecRepr)
     SU.StringTy -> Some ST.StringRepr
@@ -109,6 +111,10 @@ typeOfExpr e =
     SU.LitString {} -> Just (Some ST.StringRepr)
     SU.LitDouble {} -> Just (Some (ST.FloatRepr ST.DoublePrecRepr))
     SU.LitFloat {} -> Just (Some (ST.FloatRepr ST.SinglePrecRepr))
+    SU.LitLong {} -> Just (Some (ST.BVRepr (PN.knownNat @64)))
+    SU.LitULong {} -> Just (Some (ST.BVRepr (PN.knownNat @64)))
+    SU.LitLongLong {} -> Just (Some (ST.BVRepr (PN.knownNat @64)))
+    SU.LitULongLong {} -> Just (Some (ST.BVRepr (PN.knownNat @64)))
     SU.Cast (LDL.Located _loc t) _ -> Just (typeRepr t)
     SU.Ternary _ e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
 
