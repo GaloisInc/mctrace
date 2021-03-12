@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 module Language.DTrace.Syntax.Typed (
@@ -20,6 +21,7 @@ import qualified Data.BitVector.Sized as DBS
 import qualified Data.Kind as DK
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map as Map
+import           Data.Maybe ( isJust )
 import qualified Data.Parameterized.Classes as PC
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
@@ -41,6 +43,8 @@ type DoublePrec = 'DoublePrec
 data FloatPrecRepr p where
   SinglePrecRepr :: FloatPrecRepr SinglePrec
   DoublePrecRepr :: FloatPrecRepr DoublePrec
+
+deriving instance Show (FloatPrecRepr p)
 
 data Type where
   BVType :: Nat -> Type
@@ -72,6 +76,11 @@ instance PC.TestEquality Repr where
                   [ (PTH.TypeApp (PTH.ConType [t|PN.NatRepr|]) PTH.AnyType, [|PC.testEquality|])
                   , (PTH.TypeApp (PTH.ConType [t|FloatPrecRepr|]) PTH.AnyType, [|PC.testEquality|])
                   ])
+
+instance Eq (Repr tp) where
+  r1 == r2 = isJust (PC.testEquality r1 r2)
+
+deriving instance Show (Repr tp)
 
 data Reg globals locals (tp :: Type) where
   LocalReg :: Ctx.Index locals tp -> Reg globals locals tp
