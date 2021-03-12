@@ -63,7 +63,7 @@ mkTypecheckTest expectedFile = TTH.testCase dfile $ do
                   Nothing -> TTH.assertFailure ("No global entry for expected global: " ++ name)
                   Just (Some idx) -> do
                     let LDT.Variable rep _name = globalVars Ctx.! idx
-                    TTH.assertBool "Expected Type" (expectedType exTy rep)
+                    TTH.assertBool ("Expected type " ++ show exTy ++ " but got " ++ show rep) (expectedType exTy rep)
               F.forM_ (Map.keys globalMap) $ \actualGlobalName -> do
                 case lookup (T.unpack actualGlobalName) (globals ex) of
                   Nothing -> TTH.assertFailure ("Discovered unexpected global: " ++ show actualGlobalName)
