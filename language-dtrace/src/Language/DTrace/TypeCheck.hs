@@ -115,7 +115,7 @@ typeOfExpr e =
 --
 -- This is pure to support use in pattern guards
 undefinedVar :: PState globals locals -> T.Text -> Bool
-undefinedVar s name = Map.member name (globalMap s)
+undefinedVar s name = not (Map.member name (globalMap s))
 
 resetLocals :: State -> State
 resetLocals (State pstate) =
