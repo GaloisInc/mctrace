@@ -9,6 +9,7 @@ import qualified Control.Monad.Catch.Pure as CMC
 import qualified Control.Monad.State.Strict as CMS
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
+import           Data.Maybe ( fromMaybe )
 import qualified Data.Text as T
 import           Numeric.Natural ( Natural )
 
@@ -176,12 +177,16 @@ Stmts :: { [LDLW.Located DS.Stmt] }
 Stmts : ReverseStmts { reverse $1 }
 
 -- FIXME: This needs to account for patterns
-ProbeComponent :: { (LDLW.Lexeme DT.Token, T.Text) }
-ProbeComponent : IDENTIFIER { $1 }
+--
+-- FIXME: These are actually a superset of identifiers that can contain dashes
+MaybeProbeComponent :: { Maybe (LDLW.Lexeme DT.Token, T.Text) }
+MaybeProbeComponent : IDENTIFIER { Just $1 }
+                    |                { Nothing }
 
 ProbeDescription :: { LDLW.Located LDP.ProbeDescription }
-ProbeDescription : ProbeComponent COLON ProbeComponent COLON ProbeComponent COLON ProbeComponent
-                   {% mkLocated [LDLW.range (fst $1), LDLW.range (fst $7)] (LDP.ProbeDescription (snd $1) (snd $3) (snd $5) (snd $7)) }
+ProbeDescription : MaybeProbeComponent COLON MaybeProbeComponent COLON MaybeProbeComponent COLON MaybeProbeComponent
+                    {% mkLocated [LDLW.range (firstToken (fmap fst $1) $2), LDLW.range (firstToken (fmap fst $7) $6)]
+                       (LDP.ProbeDescription (asProbe $1) (asProbe $3) (asProbe $5) (asProbe $7)) }
 
 ReverseProbeDescriptions :: { DLN.NonEmpty (LDLW.Located LDP.ProbeDescription) }
 ReverseProbeDescriptions : ProbeDescription   { $1 DLN.:| [] }
@@ -204,6 +209,11 @@ ReverseTopLevels :                           { [] }
                  | ReverseTopLevels TopLevel { $2 : $1 }
 
 {
+
+asProbe = maybe mempty snd
+
+firstToken :: Maybe (LDLW.Lexeme DT.Token) -> LDLW.Lexeme DT.Token -> LDLW.Lexeme DT.Token
+firstToken mt t = fromMaybe t mt
 
 neCons :: a -> DLN.NonEmpty a -> DLN.NonEmpty a
 neCons a1 (a2 DLN.:| as) = a1 DLN.:| (a2 : as)
