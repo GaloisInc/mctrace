@@ -117,7 +117,37 @@ typeOfExpr e =
     SU.LitULongLong {} -> Just (Some (ST.BVRepr (PN.knownNat @64)))
     SU.Cast (LDL.Located _loc t) _ -> Just (typeRepr t)
     SU.Ternary _ e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Assign _lhs rhs ->
+      -- To figure out the type of an assignment, we inspect the value being
+      -- assigned
+      typeOfExpr (LDL.value rhs)
 
+    SU.Not e' -> typeOfExpr (LDL.value e')
+    SU.And e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Or e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Xor e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+
+    SU.Eq e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Ne e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Lt e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Le e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Ge e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Gt e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+
+    SU.Neg e' -> typeOfExpr (LDL.value e')
+    SU.Add e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Sub e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Div e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Mul e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.Mod e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+
+    SU.BVNeg e' -> typeOfExpr (LDL.value e')
+    SU.BVAnd e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.BVOr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.BVXor e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.BVShl e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.BVLshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
+    SU.BVAshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
 
 -- | Return true if the given variable name is defined in the global state
 --
