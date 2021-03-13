@@ -29,6 +29,7 @@ import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Parameterized.TH.GADT as PTH
 import qualified Data.Text as T
 import           GHC.TypeLits ( Nat )
+import           Numeric.Natural ( Natural )
 
 import qualified Language.DTrace.ProbeDescription as LDP
 import qualified Language.DTrace.Token as DT
@@ -94,7 +95,7 @@ data App (f :: Type -> DK.Type) (tp :: Type) where
 
   LitInt :: DT.NumericLiteralFormat -> PN.NatRepr n -> DBS.BV n -> App f (BVType n)
   LitString :: T.Text -> App f StringType
-  LitFloat :: FloatPrecRepr p -> Double -> App f (FloatType p)
+  LitFloat :: FloatPrecRepr p -> T.Text -> Double -> App f (FloatType p)
   LitBool :: Bool -> App f BoolType
 
   And :: f BoolType -> f BoolType -> App f BoolType
@@ -140,12 +141,12 @@ data App (f :: Type -> DK.Type) (tp :: Type) where
   Call :: Repr tp -> T.Text -> Ctx.Assignment (App f) tps -> App f tp
 
 data Stmt globals locals where
-  SetReg :: Repr tp -> Expr globals locals tp -> Stmt globals locals
-  ReadGlobal :: Repr tp -> String -> Stmt globals locals
-  WriteGlobal :: Repr tp -> String -> Reg globals locals tp -> Stmt globals locals
+  SetReg :: Ctx.Index locals tp -> Expr globals locals tp -> Stmt globals locals
+  WriteGlobal :: Ctx.Index globals tp -> Ctx.Index locals tp -> Stmt globals locals
 
 data Variable tp where
   Variable :: Repr tp -> T.Text -> Variable tp
+  Temporary :: Repr tp -> Natural -> Variable tp
 
 data Probe globals where
   Probe :: DLN.NonEmpty LDP.ProbeDescription

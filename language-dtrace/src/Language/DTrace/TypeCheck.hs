@@ -1,8 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 module Language.DTrace.TypeCheck (
     typeCheck
@@ -12,22 +15,30 @@ module Language.DTrace.TypeCheck (
 
 import           Control.Applicative ( (<|>) )
 import qualified Control.Monad.RWS.Strict as RWS
+import qualified Data.BitVector.Sized as DBS
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as Map
+import qualified Data.Parameterized.Classes as PC
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
+import           Numeric.Natural ( Natural )
 import           Unsafe.Coerce ( unsafeCoerce )
 
 import qualified Language.DTrace.LexerWrapper as LDL
 import qualified Language.DTrace.Syntax.Typed as ST
 import qualified Language.DTrace.Syntax.Untyped as SU
+import qualified Language.DTrace.Token as DT
 
 
 data TypeErrorMessage where
   IndeterminateInitializerType :: SU.Expr -> TypeErrorMessage
+  InvalidAssignmentLHS :: LDL.Located SU.Expr -> TypeErrorMessage
+  SignedLiteralOutOfRange :: PN.NatRepr n -> Natural -> TypeErrorMessage
+  UnsignedLiteralOutOfRange :: PN.NatRepr n -> Natural -> TypeErrorMessage
+  TypeMismatchOnAssignment :: ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
   TypeErrorMessage :: TypeErrorMessage
 
 deriving instance Show TypeErrorMessage
@@ -39,6 +50,9 @@ deriving instance Show TypeError
 
 typeError :: (LDL.HasRange a) => a -> TypeErrorMessage -> TypeError
 typeError loc = TypeError (LDL.range loc)
+
+recordError :: (LDL.HasRange a) => a -> TypeErrorMessage -> TC ()
+recordError loc msg = RWS.tell (Seq.singleton (typeError loc msg))
 
 data PState globals locals =
   PState { globalVars :: !(Ctx.Assignment ST.Variable globals)
@@ -56,6 +70,15 @@ data PState globals locals =
          --
          -- Note that these are in a-normal form (i.e., simple three address
          -- code without nested expressions)
+         --
+         -- FIXME: This will need to turn into a block structure eventually,
+         -- unless side effects are acceptable in e.g. logical expressions and
+         -- ternary operations
+         , tempCounter :: Natural
+         -- ^ A source of unique identifiers for local variables
+         --
+         -- Note that these are only used for printing names; indexing is done
+         -- via the 'Ctx.Index' type.
          }
 
 data State where
@@ -70,6 +93,7 @@ emptyState = State pstate
                     , localVars = Ctx.empty
                     , localMap = Map.empty
                     , probeStmts = mempty
+                    , tempCounter = 0
                     }
 
 newtype TC a = TC { unTC :: RWS.RWS () (Seq.Seq TypeError) State a }
@@ -80,6 +104,8 @@ newtype TC a = TC { unTC :: RWS.RWS () (Seq.Seq TypeError) State a }
            , RWS.MonadWriter (Seq.Seq TypeError)
            , RWS.MonadState State
            )
+
+
 
 -- | Convert a Base Syntax type into a type repr from the Typed Syntax
 typeRepr :: SU.Type -> Some ST.Repr
@@ -163,6 +189,7 @@ resetLocals (State pstate) =
                , localVars = Ctx.empty
                , localMap = Map.empty
                , probeStmts = mempty
+               , tempCounter = tempCounter pstate
                }
 
 -- | Records a newly-translated probe and reset the local translation state
@@ -174,19 +201,21 @@ recordProbe p pstate =
          , localVars = Ctx.empty
          , localMap = Map.empty
          , probeStmts = mempty
+         , tempCounter = tempCounter pstate
          }
 
 addGlobal :: T.Text -> ST.Repr tp -> State -> State
-addGlobal varName varRepr (State pstate) =
+addGlobal varName rep (State pstate) =
   State PState { globalVars = xvars
                , globalMap = xmap
                , translatedProbes = unsafeCoerce (translatedProbes pstate)
                , localVars = localVars pstate
                , localMap = localMap pstate
                , probeStmts = unsafeCoerce (probeStmts pstate)
+               , tempCounter = tempCounter pstate
                }
   where
-    var = ST.Variable varRepr varName
+    var = ST.Variable rep varName
     xvars = globalVars pstate `Ctx.extend` var
     idx = Ctx.lastIndex (Ctx.size xvars)
     xmap = Map.insert varName (Some idx) (unsafeCoerce (globalMap pstate))
@@ -238,13 +267,152 @@ allocateImplicitGlobals tu =
           | undefinedVar s0 varName ->
             case typeOfExpr (LDL.value rhs) of
               Just (Some tp) -> RWS.modify' (addGlobal varName tp)
-              Nothing -> RWS.tell (Seq.singleton (typeError rhs (IndeterminateInitializerType (LDL.value rhs))))
+              Nothing -> recordError rhs (IndeterminateInitializerType (LDL.value rhs))
         _ -> return ()
       app' <- SU.traverseExpr allocateGlobalLValues app
       return (LDL.Located range (SU.Expr app'))
 
-translateStatement :: LDL.Located SU.Stmt -> TC ()
-translateStatement stmt = return ()
+inRangeSigned :: PN.NatRepr n -> Natural -> Bool
+inRangeSigned nr n = n <= 2 ^ (PN.natValue nr - 1)
+
+inRangeUnsigned :: PN.NatRepr n -> Natural -> Bool
+inRangeUnsigned nr n = n <= 2 ^ PN.natValue nr
+
+n32 :: PN.NatRepr 32
+n32 = PN.knownNat @32
+
+n64 :: PN.NatRepr 64
+n64 = PN.knownNat @64
+
+varRepr :: ST.Variable tp -> ST.Repr tp
+varRepr v =
+  case v of
+    ST.Variable r _ -> r
+    ST.Temporary r _ -> r
+
+withFreshLocal :: forall globals locals tp a
+                . PState globals locals
+               -> ST.Repr tp
+               -> (PState globals (locals Ctx.::> tp) -> Ctx.Index (locals Ctx.::> tp) tp -> a)
+               -> a
+withFreshLocal pstate0 rep k =
+  k pstate1 (Ctx.lastIndex (Ctx.size newLocals))
+  where
+    varId = tempCounter pstate0
+    newLocals = Ctx.extend (localVars pstate0) (ST.Temporary rep varId)
+    pstate1 :: PState globals (locals Ctx.::> tp)
+    pstate1 = PState { globalVars = globalVars pstate0
+                     , globalMap = globalMap pstate0
+                     , translatedProbes = translatedProbes pstate0
+                     , probeStmts = unsafeCoerce (probeStmts pstate0)
+                     , localMap = unsafeCoerce (localMap pstate0)
+                     , localVars = newLocals
+                     , tempCounter = varId + 1
+                     }
+
+setReg :: PState globals locals
+       -> Ctx.Index locals tp
+       -> ST.App (ST.Reg globals locals) tp
+       -> PState globals locals
+setReg pstate idx app =
+  pstate { probeStmts = probeStmts pstate Seq.|> ST.SetReg idx (ST.Expr app)
+         }
+
+writeGlobal :: PState globals locals
+            -> Ctx.Index globals tp
+            -> Ctx.Index locals tp
+            -> PState globals locals
+writeGlobal pstate dst src =
+  pstate { probeStmts = probeStmts pstate Seq.|> ST.WriteGlobal dst src
+         }
+
+-- | Translate a single untyped expression into a typed expression
+--
+-- Untyped expressions can have arbitrarily deep nesting structure, while the
+-- typed AST is in A-normal form (i.e., three address code).  Thus, translating
+-- expressions requires flattening them (which will add primitive statements to
+-- the typechecker context under 'probeStmts').
+--
+-- Design 1: Mix local variables and temporaries
+--
+-- Design 2: Have a separate pool of named locals (like the global pool) and temporary bindings
+--
+-- It seems like an easy approach would be to bind each expression to a fresh
+-- local variable.  This would admit a uniform representation.  This is Design 1.
+--
+-- The major challenge (in terms of types) is that 'translateExpr' needs to
+-- extend the set of locals, but the locals type variable is:
+--
+-- 1. Quantified away here
+--
+-- 2. Inherently part of the temporary variable reference
+--
+-- This probably means that 'translateExpr' will not be in 'TC'; instead, it
+-- will need to be CPSed to expose the type parameters of 'PState' to allow for
+-- this growth.  Then the state will be quantified away by the caller.
+translateExpr :: PState globals locals
+              -> LDL.Located SU.Expr
+              -> (forall loc . (LDL.HasRange loc) => loc -> TypeErrorMessage -> a)
+              -> (forall locals' tp . PState globals locals' -> Ctx.Index locals' tp -> a)
+              -> a
+translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
+  case app of
+    SU.LitInt fmt n
+      | not (inRangeSigned n32 n) -> onError ex0 (SignedLiteralOutOfRange n32 n)
+      | otherwise -> withFreshLocal s0 (ST.BVRepr n32) $ \s1 idx ->
+          let s2 = setReg s1 idx (ST.LitInt fmt n32 (DBS.mkBV n32 (toInteger n)))
+          in k s2 idx
+    SU.LitLong n
+      | not (inRangeSigned n64 n) -> onError ex0 (SignedLiteralOutOfRange n64 n)
+      | otherwise -> withFreshLocal s0 (ST.BVRepr n64) $ \s1 idx ->
+          let s2 = setReg s1 idx (ST.LitInt DT.Decimal n64 (DBS.mkBV n64 (toInteger n)))
+          in k s2 idx
+    SU.LitULong n
+      | not (inRangeUnsigned n64 n) -> onError ex0 (UnsignedLiteralOutOfRange n64 n)
+      | otherwise -> withFreshLocal s0 (ST.BVRepr n64) $ \s1 idx ->
+          let s2 = setReg s1 idx (ST.LitInt DT.Decimal n64 (DBS.mkBV n64 (toInteger n)))
+          in k s2 idx
+    SU.LitLongLong n
+      | not (inRangeSigned n64 n) -> onError ex0 (SignedLiteralOutOfRange n64 n)
+      | otherwise -> withFreshLocal s0 (ST.BVRepr n64) $ \s1 idx ->
+          let s2 = setReg s1 idx (ST.LitInt DT.Decimal n64 (DBS.mkBV n64 (toInteger n)))
+          in k s2 idx
+    SU.LitULongLong n
+      | not (inRangeUnsigned n64 n) -> onError ex0 (UnsignedLiteralOutOfRange n64 n)
+      | otherwise -> withFreshLocal s0 (ST.BVRepr n64) $ \s1 idx ->
+          let s2 = setReg s1 idx (ST.LitInt DT.Decimal n64 (DBS.mkBV n64 (toInteger n)))
+          in k s2 idx
+    SU.LitDouble t d -> withFreshLocal s0 (ST.FloatRepr ST.DoublePrecRepr) $ \s1 idx ->
+      let s2 = setReg s1 idx (ST.LitFloat ST.DoublePrecRepr t d)
+      in k s2 idx
+    SU.LitFloat t d -> withFreshLocal s0 (ST.FloatRepr ST.SinglePrecRepr) $ \s1 idx ->
+      let s2 = setReg s1 idx (ST.LitFloat ST.SinglePrecRepr t (realToFrac d))
+      in k s2 idx
+    SU.Assign (LDL.Located _ (SU.Expr (SU.VarRef varName))) rhs ->
+      translateExpr s0 rhs onError $ \s1 rhsIdx -> do
+        case Map.lookup varName (globalMap s0) of
+          Nothing -> error ("Panic: No variable found for global: " ++ show varName)
+          Just (Some globalIdx)
+            | Just PC.Refl <- PC.testEquality (varRepr (localVars s1 Ctx.! rhsIdx)) (varRepr (globalVars s1 Ctx.! globalIdx)) ->
+              let s2 = writeGlobal s1 globalIdx rhsIdx
+              in k s2 rhsIdx
+            | otherwise -> onError ex0 (TypeMismatchOnAssignment (varRepr (localVars s1 Ctx.! rhsIdx)) (varRepr (globalVars s1 Ctx.! globalIdx)))
+
+    SU.Assign lhs _ -> onError ex0 (InvalidAssignmentLHS lhs)
+
+
+translateStatement :: [LDL.Located SU.Stmt] -> TC () -> TC () -> TC ()
+translateStatement [] _exitEarly k = k
+translateStatement (stmt:stmts) exitEarly k =
+  case LDL.value stmt of
+    SU.DeclStmt {} -> return ()
+    SU.ExprStmt ex -> do
+      State s0 <- RWS.get
+      let onError :: (LDL.HasRange a) => a -> TypeErrorMessage -> TC ()
+          onError a msg = recordError a msg >> exitEarly
+      translateExpr s0 ex onError $ \s1 _idx -> do
+        RWS.put (State s1)
+        translateStatement stmts exitEarly k
 
 checkProbe :: SU.TopLevel -> TC ()
 checkProbe tu =
@@ -253,13 +421,13 @@ checkProbe tu =
     SU.TopProbe p -> do
       RWS.modify' resetLocals
 
-      mapM_ translateStatement (SU.probeBody (LDL.value p))
-
-      State s <- RWS.get
-      let true = ST.Expr (ST.LitBool True)
-      let patterns = fmap LDL.value (SU.probePatterns (LDL.value p))
-      let translatedProbe = ST.Probe patterns true (localVars s) (F.toList (probeStmts s))
-      RWS.put (State (recordProbe translatedProbe s))
+      let cleanupLocals = RWS.modify' resetLocals
+      translateStatement (SU.probeBody (LDL.value p)) cleanupLocals $ do
+        State s <- RWS.get
+        let true = ST.Expr (ST.LitBool True)
+        let patterns = fmap LDL.value (SU.probePatterns (LDL.value p))
+        let translatedProbe = ST.Probe patterns true (localVars s) (F.toList (probeStmts s))
+        RWS.put (State (recordProbe translatedProbe s))
 
 doTypeCheck :: [SU.TopLevel] -> TC ()
 doTypeCheck topLevels = do
