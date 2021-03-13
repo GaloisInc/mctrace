@@ -39,6 +39,8 @@ data TypeErrorMessage where
   SignedLiteralOutOfRange :: PN.NatRepr n -> Natural -> TypeErrorMessage
   UnsignedLiteralOutOfRange :: PN.NatRepr n -> Natural -> TypeErrorMessage
   TypeMismatchOnAssignment :: ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
+  BinaryOperatorTypeMismatch :: String -> ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
+  InvalidOperandTypeForOperator :: String -> ST.Repr tp -> TypeErrorMessage
   TypeErrorMessage :: TypeErrorMessage
 
 deriving instance Show TypeErrorMessage
@@ -393,13 +395,30 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
         case Map.lookup varName (globalMap s0) of
           Nothing -> error ("Panic: No variable found for global: " ++ show varName)
           Just (Some globalIdx)
-            | Just PC.Refl <- PC.testEquality (varRepr (localVars s1 Ctx.! rhsIdx)) (varRepr (globalVars s1 Ctx.! globalIdx)) ->
+            | Just PC.Refl <- PC.testEquality (localType s1 rhsIdx) (varRepr (globalVars s1 Ctx.! globalIdx)) ->
               let s2 = writeGlobal s1 globalIdx rhsIdx
               in k s2 rhsIdx
-            | otherwise -> onError ex0 (TypeMismatchOnAssignment (varRepr (localVars s1 Ctx.! rhsIdx)) (varRepr (globalVars s1 Ctx.! globalIdx)))
-
+            | otherwise -> onError ex0 (TypeMismatchOnAssignment (localType s1 rhsIdx) (varRepr (globalVars s1 Ctx.! globalIdx)))
     SU.Assign lhs _ -> onError ex0 (InvalidAssignmentLHS lhs)
+    SU.Add lhs rhs ->
+      translateExpr s0 rhs onError $ \s1 rhsIdx -> do
+        translateExpr s1 lhs onError $ \s2 lhsIdx -> do
+          case PC.testEquality (localType s2 lhsIdx) (localType s1 rhsIdx) of
+            Nothing -> onError ex0 (BinaryOperatorTypeMismatch "Add" (localType s2 lhsIdx) (localType s1 rhsIdx))
+            Just PC.Refl ->
+              withFreshLocal s2 (localType s2 lhsIdx) $ \s3 idx -> do
+                case localType s2 lhsIdx of
+                  ST.BoolRepr -> onError ex0 (InvalidOperandTypeForOperator "Add" ST.BoolRepr)
+                  ST.StringRepr -> onError ex0 (InvalidOperandTypeForOperator "Add" ST.StringRepr)
+                  ST.BVRepr n ->
+                    let s4 = setReg s3 idx (ST.BVAdd n (ST.LocalReg (Ctx.extendIndex lhsIdx)) (ST.LocalReg (unsafeCoerce rhsIdx)))
+                    in k s4 idx
+                  ST.FloatRepr p ->
+                    let s4 = setReg s3 idx (ST.FAdd p (ST.LocalReg (Ctx.extendIndex lhsIdx)) (ST.LocalReg (unsafeCoerce rhsIdx)))
+                    in k s4 idx
 
+localType :: PState globals ctx -> Ctx.Index ctx tp -> ST.Repr tp
+localType s idx = varRepr (localVars s Ctx.! idx)
 
 translateStatement :: [LDL.Located SU.Stmt] -> TC () -> TC () -> TC ()
 translateStatement [] _exitEarly k = k

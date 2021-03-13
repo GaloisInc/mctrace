@@ -107,19 +107,19 @@ data App (f :: Type -> DK.Type) (tp :: Type) where
   Ne :: f tp -> f tp -> App f BoolType
 
   BVNeg :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVAdd :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVSub :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVMul :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVUDiv :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVUMod :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVSDiv :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVSMod :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVAnd :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVOr :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVXor :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVShl :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVAshr :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
-  BVLshr :: PN.NatRepr n -> f (BVType n) -> App f (BVType n)
+  BVAdd :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVSub :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVMul :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVUDiv :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVUMod :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVSDiv :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVSMod :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVAnd :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVOr :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVXor :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVShl :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVAshr :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
+  BVLshr :: PN.NatRepr n -> f (BVType n) -> f (BVType n) -> App f (BVType n)
   BVSlt :: f (BVType n) -> f (BVType n) -> App f BoolType
   BVSle :: f (BVType n) -> f (BVType n) -> App f BoolType
   BVUlt :: f (BVType n) -> f (BVType n) -> App f BoolType
