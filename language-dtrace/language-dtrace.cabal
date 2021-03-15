@@ -21,6 +21,7 @@ library
   exposed-modules:     Language.DTrace
                        Language.DTrace.ProbeDescription
                        Language.DTrace.Syntax.Typed
+                       Language.DTrace.Syntax.Typed.Eval
                        Language.DTrace.Syntax.Untyped
   other-modules:       Language.DTrace.Lexer
                        Language.DTrace.LexerWrapper
@@ -35,6 +36,7 @@ library
                        containers,
                        bytestring >= 0.10 && < 0.12,
                        exceptions >= 0.9 && < 0.11,
+                       lens >= 4 && < 6,
                        mtl >= 2 && < 2.3,
                        parameterized-utils >= 2 && < 2.2,
                        bv-sized >= 1 && < 1.1,

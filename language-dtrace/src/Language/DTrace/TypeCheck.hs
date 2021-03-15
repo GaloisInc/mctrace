@@ -286,11 +286,6 @@ n32 = PN.knownNat @32
 n64 :: PN.NatRepr 64
 n64 = PN.knownNat @64
 
-varRepr :: ST.Variable tp -> ST.Repr tp
-varRepr v =
-  case v of
-    ST.Variable r _ -> r
-    ST.Temporary r _ -> r
 
 withFreshLocal :: forall globals locals tp a
                 . PState globals locals
@@ -395,30 +390,45 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
         case Map.lookup varName (globalMap s0) of
           Nothing -> error ("Panic: No variable found for global: " ++ show varName)
           Just (Some globalIdx)
-            | Just PC.Refl <- PC.testEquality (localType s1 rhsIdx) (varRepr (globalVars s1 Ctx.! globalIdx)) ->
+            | Just PC.Refl <- PC.testEquality (localType s1 rhsIdx) (ST.varRepr (globalVars s1 Ctx.! globalIdx)) ->
               let s2 = writeGlobal s1 globalIdx rhsIdx
               in k s2 rhsIdx
-            | otherwise -> onError ex0 (TypeMismatchOnAssignment (localType s1 rhsIdx) (varRepr (globalVars s1 Ctx.! globalIdx)))
+            | otherwise -> onError ex0 (TypeMismatchOnAssignment (localType s1 rhsIdx) (ST.varRepr (globalVars s1 Ctx.! globalIdx)))
     SU.Assign lhs _ -> onError ex0 (InvalidAssignmentLHS lhs)
-    SU.Add lhs rhs ->
-      translateExpr s0 rhs onError $ \s1 rhsIdx -> do
-        translateExpr s1 lhs onError $ \s2 lhsIdx -> do
-          case PC.testEquality (localType s2 lhsIdx) (localType s1 rhsIdx) of
-            Nothing -> onError ex0 (BinaryOperatorTypeMismatch "Add" (localType s2 lhsIdx) (localType s1 rhsIdx))
-            Just PC.Refl ->
-              withFreshLocal s2 (localType s2 lhsIdx) $ \s3 idx -> do
-                case localType s2 lhsIdx of
-                  ST.BoolRepr -> onError ex0 (InvalidOperandTypeForOperator "Add" ST.BoolRepr)
-                  ST.StringRepr -> onError ex0 (InvalidOperandTypeForOperator "Add" ST.StringRepr)
-                  ST.BVRepr n ->
-                    let s4 = setReg s3 idx (ST.BVAdd n (ST.LocalReg (Ctx.extendIndex lhsIdx)) (ST.LocalReg (unsafeCoerce rhsIdx)))
-                    in k s4 idx
-                  ST.FloatRepr p ->
-                    let s4 = setReg s3 idx (ST.FAdd p (ST.LocalReg (Ctx.extendIndex lhsIdx)) (ST.LocalReg (unsafeCoerce rhsIdx)))
-                    in k s4 idx
+    SU.Add lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Add" ST.BVAdd ST.FAdd
+    SU.Sub lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Sub" ST.BVSub ST.FSub
+    SU.Mul lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Mul" ST.BVMul ST.FMul
+
+binaryArith :: PState globals locals
+            -> LDL.Located SU.Expr
+            -> LDL.Located SU.Expr
+            -> LDL.Located SU.Expr
+            -> (forall loc . (LDL.HasRange loc) => loc -> TypeErrorMessage -> a)
+            -> (forall locals' tp . PState globals locals' -> Ctx.Index locals' tp -> a)
+            -> String
+            -> (forall locals2 n . PN.NatRepr n -> ST.Reg globals locals2 (ST.BVType n) -> ST.Reg globals locals2 (ST.BVType n) -> ST.App (ST.Reg globals locals2) (ST.BVType n))
+            -> (forall locals2 p . ST.FloatPrecRepr p -> ST.Reg globals locals2 (ST.FloatType p) -> ST.Reg globals locals2 (ST.FloatType p) -> ST.App (ST.Reg globals locals2) (ST.FloatType p))
+            -> a
+binaryArith s0 ex0 lhs rhs onError k opName bvOp fpOp =
+  translateExpr s0 rhs onError $ \s1 rhsIdx -> do
+    translateExpr s1 lhs onError $ \s2 lhsIdx -> do
+      case PC.testEquality (localType s2 lhsIdx) (localType s1 rhsIdx) of
+        Nothing -> onError ex0 (BinaryOperatorTypeMismatch opName (localType s2 lhsIdx) (localType s1 rhsIdx))
+        Just PC.Refl ->
+          withFreshLocal s2 (localType s2 lhsIdx) $ \s3 idx -> do
+            case localType s2 lhsIdx of
+              ST.BoolRepr -> onError ex0 (InvalidOperandTypeForOperator opName ST.BoolRepr)
+              ST.StringRepr -> onError ex0 (InvalidOperandTypeForOperator opName ST.StringRepr)
+              ST.BVRepr n ->
+                let s4 = setReg s3 idx (bvOp n (ST.LocalReg (Ctx.extendIndex lhsIdx)) (ST.LocalReg (unsafeCoerce rhsIdx)))
+                in k s4 idx
+              ST.FloatRepr p ->
+                let s4 = setReg s3 idx (fpOp p (ST.LocalReg (Ctx.extendIndex lhsIdx)) (ST.LocalReg (unsafeCoerce rhsIdx)))
+                in k s4 idx
+
 
 localType :: PState globals ctx -> Ctx.Index ctx tp -> ST.Repr tp
-localType s idx = varRepr (localVars s Ctx.! idx)
+localType s idx = ST.varRepr (localVars s Ctx.! idx)
 
 translateStatement :: [LDL.Located SU.Stmt] -> TC () -> TC () -> TC ()
 translateStatement [] _exitEarly k = k

@@ -6,11 +6,18 @@
 {-# LANGUAGE TypeOperators #-}
 module Language.DTrace.Syntax.Typed (
     Type(..)
+  , FloatType
+  , SinglePrec
+  , DoublePrec
+  , BVType
+  , BoolType
+  , StringType
   , FloatPrecRepr(..)
   , Repr(..)
   , App(..)
   , Reg(..)
   , Variable(..)
+  , varRepr
   , Expr(..)
   , Stmt(..)
   , Probe(..)
@@ -147,6 +154,12 @@ data Stmt globals locals where
 data Variable tp where
   Variable :: Repr tp -> T.Text -> Variable tp
   Temporary :: Repr tp -> Natural -> Variable tp
+
+varRepr :: Variable tp -> Repr tp
+varRepr v =
+  case v of
+    Variable r _ -> r
+    Temporary r _ -> r
 
 data Probe globals where
   Probe :: DLN.NonEmpty LDP.ProbeDescription
