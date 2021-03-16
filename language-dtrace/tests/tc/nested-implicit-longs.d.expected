@@ -1,4 +1,4 @@
-Expected { globals = [ ("l1", BVType 64)
+TCExpected { globals = [ ("l1", BVType 64)
                      , ("l2", BVType 64)
                      , ("l3", BVType 64)
                      ]

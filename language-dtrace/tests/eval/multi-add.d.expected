@@ -1,0 +1,3 @@
+EvalExpected { postState = [("x", RegBV<32> 3)]
+             , probeSeq = [base:::read, base:::read, base:::read]
+             }

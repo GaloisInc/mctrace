@@ -1,2 +1,2 @@
-Expected { globals = [("global_double", DoubleType)]
+TCExpected { globals = [("global_double", DoubleType)]
          }

@@ -1,2 +1,2 @@
-Expected { globals = [("global_float", FloatType)]
+TCExpected { globals = [("global_float", FloatType)]
          }
