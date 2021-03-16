@@ -1,2 +1,2 @@
-Expected { globals = [("global_int", BVType 32)]
+TCExpected { globals = [("global_int", BVType 32)]
          }

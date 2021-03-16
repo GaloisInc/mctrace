@@ -149,7 +149,7 @@ data App (f :: Type -> DK.Type) (tp :: Type) where
 
 data Stmt globals locals where
   SetReg :: Ctx.Index locals tp -> Expr globals locals tp -> Stmt globals locals
-  WriteGlobal :: Ctx.Index globals tp -> Ctx.Index locals tp -> Stmt globals locals
+  WriteGlobal :: Ctx.Index globals tp -> Reg globals locals tp -> Stmt globals locals
 
 data Variable tp where
   Variable :: Repr tp -> T.Text -> Variable tp

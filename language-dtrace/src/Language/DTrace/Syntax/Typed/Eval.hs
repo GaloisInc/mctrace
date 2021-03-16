@@ -3,8 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 module Language.DTrace.Syntax.Typed.Eval (
-    RegEntry
-  , EvaluatorState
+    RegEntry(..)
+  , EvaluatorState(..)
   , initialEvaluatorState
   , evalProbe
   ) where
@@ -97,7 +97,10 @@ evalStmt :: (EvaluatorState globals, EvaluatorState locals)
 evalStmt (g0@(EvaluatorState globals), l0@(EvaluatorState locals)) stmt =
   case stmt of
     ST.SetReg idx (ST.Expr app) -> (g0, EvaluatorState (L.set (PC.ixF idx) (evalApp globals locals app) locals))
-    ST.WriteGlobal globalIdx localIdx -> (EvaluatorState (L.set (PC.ixF globalIdx) (locals Ctx.! localIdx) globals), l0)
+    ST.WriteGlobal dstGlobalIdx srcReg ->
+      case srcReg of
+        ST.LocalReg localIdx -> (EvaluatorState (L.set (PC.ixF dstGlobalIdx) (locals Ctx.! localIdx) globals), l0)
+        ST.GlobalVar globalIdx -> (EvaluatorState (L.set (PC.ixF dstGlobalIdx) (globals Ctx.! globalIdx) globals), l0)
 
 -- | Given a 'ST.Probe' and an initial state, evaluate the probe to compute the final state
 --
