@@ -57,13 +57,13 @@ recordError :: (LDL.HasRange a) => a -> TypeErrorMessage -> TC ()
 recordError loc msg = RWS.tell (Seq.singleton (typeError loc msg))
 
 data PState globals locals =
-  PState { globalVars :: !(Ctx.Assignment ST.Variable globals)
+  PState { globalVars :: !(Ctx.Assignment ST.GlobalVariable globals)
          -- ^ Definitions of all of the global variables accessed in the script
          , globalMap :: !(Map.Map T.Text (Some (Ctx.Index globals)))
          -- ^ A map to look up variables in 'globalVars' by name
          , translatedProbes :: Seq.Seq (ST.Probe globals)
          -- ^ All of the probes that have been translated so far
-         , localVars :: !(Ctx.Assignment ST.Variable locals)
+         , localVars :: !(Ctx.Assignment ST.LocalVariable locals)
          -- ^ The locals for the *current* probe being translated
          , localMap :: !(Map.Map T.Text (Some (Ctx.Index locals)))
          -- ^ A map to look up variables in 'localVars' by name
@@ -217,7 +217,7 @@ addGlobal varName rep (State pstate) =
                , tempCounter = tempCounter pstate
                }
   where
-    var = ST.Variable rep varName
+    var = ST.GlobalVariable rep varName
     xvars = globalVars pstate `Ctx.extend` var
     idx = Ctx.lastIndex (Ctx.size xvars)
     xmap = Map.insert varName (Some idx) (unsafeCoerce (globalMap pstate))
@@ -296,7 +296,7 @@ withFreshLocal pstate0 rep k =
   k pstate1 (Ctx.lastIndex (Ctx.size newLocals))
   where
     varId = tempCounter pstate0
-    newLocals = Ctx.extend (localVars pstate0) (ST.Temporary rep varId)
+    newLocals = Ctx.extend (localVars pstate0) (ST.TemporaryVariable rep varId)
     pstate1 :: PState globals (locals Ctx.::> tp)
     pstate1 = PState { globalVars = globalVars pstate0
                      , globalMap = globalMap pstate0
@@ -394,10 +394,10 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
         case Map.lookup varName (globalMap s0) of
           Nothing -> error ("Panic: No variable found for global: " ++ show varName)
           Just (Some globalIdx)
-            | Just PC.Refl <- PC.testEquality (regType s1 rhsIdx) (ST.varRepr (globalVars s1 Ctx.! globalIdx)) ->
+            | Just PC.Refl <- PC.testEquality (regType s1 rhsIdx) (ST.globalVarRepr (globalVars s1 Ctx.! globalIdx)) ->
               let s2 = writeGlobal s1 globalIdx rhsIdx
               in k s2 rhsIdx
-            | otherwise -> onError ex0 (TypeMismatchOnAssignment (regType s1 rhsIdx) (ST.varRepr (globalVars s1 Ctx.! globalIdx)))
+            | otherwise -> onError ex0 (TypeMismatchOnAssignment (regType s1 rhsIdx) (ST.globalVarRepr (globalVars s1 Ctx.! globalIdx)))
     SU.Assign lhs _ -> onError ex0 (InvalidAssignmentLHS lhs)
     SU.Add lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Add" ST.BVAdd ST.FAdd
     SU.Sub lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Sub" ST.BVSub ST.FSub
@@ -440,8 +440,8 @@ extendReg r =
 regType :: PState globals locals -> ST.Reg globals locals tp -> ST.Repr tp
 regType s r =
   case r of
-    ST.LocalReg localIdx -> ST.varRepr (localVars s Ctx.! localIdx)
-    ST.GlobalVar globalIdx -> ST.varRepr (globalVars s Ctx.! globalIdx)
+    ST.LocalReg localIdx -> ST.localVarRepr (localVars s Ctx.! localIdx)
+    ST.GlobalVar globalIdx -> ST.globalVarRepr (globalVars s Ctx.! globalIdx)
 
 translateStatement :: [LDL.Located SU.Stmt] -> TC () -> TC () -> TC ()
 translateStatement [] _exitEarly k = k

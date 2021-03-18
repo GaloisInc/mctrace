@@ -3,6 +3,7 @@ module Language.DTrace (
   , P.parseDTrace
   , TC.typeCheck
   , DP.ProbeDescription(..)
+  , TC.TypeError(..)
   ) where
 
 import qualified Language.DTrace.Lexer as L

@@ -16,8 +16,11 @@ module Language.DTrace.Syntax.Typed (
   , Repr(..)
   , App(..)
   , Reg(..)
-  , Variable(..)
-  , varRepr
+  , LocalVariable(..)
+  , localVarRepr
+  , GlobalVariable(..)
+  , globalVarName
+  , globalVarRepr
   , Expr(..)
   , Stmt(..)
   , Probe(..)
@@ -151,25 +154,36 @@ data Stmt globals locals where
   SetReg :: Ctx.Index locals tp -> Expr globals locals tp -> Stmt globals locals
   WriteGlobal :: Ctx.Index globals tp -> Reg globals locals tp -> Stmt globals locals
 
-data Variable tp where
-  Variable :: Repr tp -> T.Text -> Variable tp
-  Temporary :: Repr tp -> Natural -> Variable tp
+data GlobalVariable tp where
+  GlobalVariable :: Repr tp -> T.Text -> GlobalVariable tp
 
-varRepr :: Variable tp -> Repr tp
-varRepr v =
+deriving instance Show (GlobalVariable tp)
+
+data LocalVariable tp where
+  LocalVariable :: Repr tp -> T.Text -> LocalVariable tp
+  TemporaryVariable :: Repr tp -> Natural -> LocalVariable tp
+
+globalVarRepr :: GlobalVariable tp -> Repr tp
+globalVarRepr (GlobalVariable r _) = r
+
+globalVarName :: GlobalVariable tp -> T.Text
+globalVarName (GlobalVariable _ t) = t
+
+localVarRepr :: LocalVariable tp -> Repr tp
+localVarRepr v =
   case v of
-    Variable r _ -> r
-    Temporary r _ -> r
+    LocalVariable r _ -> r
+    TemporaryVariable r _ -> r
 
 data Probe globals where
   Probe :: DLN.NonEmpty LDP.ProbeDescription
         -> Expr globals locals BoolType
-        -> Ctx.Assignment Variable locals
+        -> Ctx.Assignment LocalVariable locals
         -> [Stmt globals locals]
         -> Probe globals
 
 data Probes where
-  Probes :: Ctx.Assignment Variable globals
+  Probes :: Ctx.Assignment GlobalVariable globals
          -> Map.Map T.Text (Some (Ctx.Index globals))
          -> [Probe globals]
          -> Probes

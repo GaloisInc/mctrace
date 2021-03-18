@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 module Language.DTrace.Syntax.Typed.Eval (
@@ -29,12 +30,16 @@ data EvaluatorState globals where
   EvaluatorState :: !(Ctx.Assignment RegEntry globals) -> EvaluatorState globals
 
 -- | Zero-initialize all state entries
-initialEvaluatorState :: forall tps . Ctx.Assignment ST.Variable tps -> EvaluatorState tps
-initialEvaluatorState vars = EvaluatorState (Ctx.generate (Ctx.size vars) initialVariableValue)
+initialEvaluatorState :: forall tps var
+                       . (forall tp . var tp -> ST.Repr tp)
+                      -> Ctx.Assignment var tps
+                      -> EvaluatorState tps
+initialEvaluatorState varRepr vars =
+  EvaluatorState (Ctx.generate (Ctx.size vars) initialVariableValue)
   where
-    initialVariableValue :: Ctx.Index tps tp -> RegEntry tp
+    initialVariableValue :: forall tp . Ctx.Index tps tp -> RegEntry tp
     initialVariableValue idx =
-      case ST.varRepr (vars Ctx.! idx) of
+      case varRepr (vars Ctx.! idx) of
         ST.BoolRepr -> RegBool False
         ST.BVRepr n -> RegBV (DBS.mkBV n 0)
         ST.StringRepr -> RegString mempty
@@ -109,4 +114,4 @@ evalProbe :: ST.Probe globals -> EvaluatorState globals -> EvaluatorState global
 evalProbe (ST.Probe _desc guard localVars stmts) env =
   fst (F.foldl' evalStmt (env, locals0) stmts)
   where
-    locals0 = initialEvaluatorState localVars
+    locals0 = initialEvaluatorState ST.localVarRepr localVars
