@@ -13,4 +13,4 @@ data ProbeDescription =
                    , probeFunction :: T.Text
                    , probeName :: T.Text
                    }
-  deriving (Show)
+  deriving (Show, Eq)

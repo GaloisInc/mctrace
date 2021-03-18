@@ -18,15 +18,21 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     MCTrace
-  -- other-modules:
+                       MCTrace.Codegen.LLVM
+  other-modules:       MCTrace.Panic
   -- other-extensions:
   build-depends:       base >=4.10 && < 5,
+                       bv-sized,
                        containers,
                        exceptions >= 0.9 && < 0.11,
                        lumberjack >= 1 && < 1.1,
+                       mtl >= 2 && < 3,
+                       panic >= 0.4 && < 0.5,
+                       parameterized-utils >= 2 && < 2.2,
                        prettyprinter >= 1.7 && < 1.8,
                        llvm-hs-pure >= 9 && < 10,
-                       language-dtrace
+                       language-dtrace,
+                       text
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat
@@ -36,9 +42,44 @@ executable mctrace
   -- other-modules:
   -- other-extensions:
   build-depends:       base,
+                       aeson >= 1.4 && < 1.6,
+                       bytestring,
+                       containers,
                        optparse-applicative >= 0.16 && < 0.17,
+                       parameterized-utils,
+                       llvm-hs-pure,
+                       llvm-hs,
                        lumberjack,
+                       text,
+                       language-dtrace,
                        mctrace
   hs-source-dirs:      tools/mctrace
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat
+
+test-suite mctrace-tests
+  default-language: Haskell2010
+  ghc-options: -Wall -Wcompat
+  hs-source-dirs: tests
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  build-depends: base,
+                 binary,
+                 bytestring,
+                 bv-sized,
+                 directory,
+                 filemanip,
+                 filepath,
+                 llvm-hs,
+                 llvm-hs-pure,
+                 mtl,
+                 parameterized-utils,
+                 process,
+                 hedgehog,
+                 tasty,
+                 tasty-hunit,
+                 tasty-hedgehog,
+                 temporary,
+                 text,
+                 language-dtrace,
+                 mctrace

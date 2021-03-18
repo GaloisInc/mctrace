@@ -157,7 +157,7 @@ evaluateProbes probes s0 desc
   | Just p <- F.find (matchingProbeDescription desc) probes = return (LDTE.evalProbe p s0)
   | otherwise = TTH.assertFailure ("No probe for description: " ++ show desc)
 
-checkVar :: Ctx.Assignment LDT.Variable globals
+checkVar :: Ctx.Assignment LDT.GlobalVariable globals
          -> Map.Map T.Text (Some (Ctx.Index globals))
          -> Ctx.Assignment LDTE.RegEntry globals
          -> (String, SomeReg)
@@ -166,7 +166,7 @@ checkVar globalVars globalMap s1 (varName, SomeReg exRep exVal) =
   case Map.lookup (T.pack varName) globalMap of
     Nothing -> TTH.assertFailure ("Missing index for variable " ++ show varName)
     Just (Some varIdx)
-      | Just PC.Refl <- PC.testEquality (LDT.varRepr (globalVars Ctx.! varIdx)) exRep ->
+      | Just PC.Refl <- PC.testEquality (LDT.globalVarRepr (globalVars Ctx.! varIdx)) exRep ->
           case (exRep, exVal, s1 Ctx.! varIdx) of
             (LDT.BoolRepr, LDTE.RegBool exBool, LDTE.RegBool actBool) ->
               TTH.assertEqual ("ExpectedBool for " ++ show varName) exBool actBool
@@ -194,7 +194,7 @@ mkEvalTest expectedFile = TTH.testCase dfile $ do
           case LD.typeCheck decls of
             Left errs -> TTH.assertFailure ("Type errors: " ++ show errs)
             Right (LDT.Probes globalVars globalMap probes) -> do
-              let s0 = LDTE.initialEvaluatorState globalVars
+              let s0 = LDTE.initialEvaluatorState LDT.globalVarRepr globalVars
               LDTE.EvaluatorState s1 <- F.foldlM (evaluateProbes probes) s0 (probeSeq ex)
               F.forM_ (postState ex) (checkVar globalVars globalMap s1)
   where
