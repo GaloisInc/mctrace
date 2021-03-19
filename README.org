@@ -1,0 +1,41 @@
+The MCTrace tool enables users to insert instrumentation into native binaries in order to collect fine-grained tracing information.  It is analogous to DTrace, but does not require any operating support (or even an operating system).  In fact, the input format of MCTrace is exactly the same as DTrace.  It does not support all of the probes supported by DTrace, as some are only possible with operating system support, but it supports any probes from DTrace that can be accomplished in userspace.
+
+* Concept of Operations
+
+Once the user has identified a program that they would like to instrument (e.g., for debugging purposes or to collect telemetry), they would:
+
+1. Write a DTrace script that collects the desired data
+2. Run the ~mctrace~ tool to instrument the binary as directed by the script (~mctrace --binary=foo --script=probes.d --output=foo.instrumented --telemetry-file=/tmp/telemetry --variable-mapping=foo.mapping~)
+3. Run the instrumented binary
+4. Interpret the resulting telemetry, converting it to JSON for further analysis (~mctrace --interpret=/tmp/telemetry --variable-mapping=foo.mapping --output=foo.telemetry.json~)
+
+* Design
+
+MCTrace uses DTrace scripts as input.  The DTrace scripting language is a simple imperative language inspired by C that is based on the concept of *probes*.  Users define probes, which are sequences of code that run at instrumentation points. The set of instrumentation points are known as *probe providers*; different operating systems (or in the case of MCTrace, probe compilers) support different providers.
+
+MCTrace compiles DTrace probe scripts into native code using a compiler backend (e.g., LLLVM).  It then uses binary rewriting to insert the generated probes into the binary.  Through static analysis, it identifies program locations corresponding to DTrace probe providers; at each provider site, it inserts calls to the compiled probes.
+
+The storage backend for telemetry data will ultimately be configurable to support a wide range of systems.  At the moment, telemetry is stored in a memory mapped region backed by a file on disk.  The region is allocated at program startup.  Each probe modifies values in that region.  When the program exits, the telemetry information persists in the file.  Users can then collect this telemetry information for offline analysis.  When instrumenting a binary with a set of probes, ~mctrace~ can emit a mapping file that describes the location of each probe variable in the collected telemetry.
+
+* Build Instructions
+
+Assuming you have a Haskell compiler installed (GHC >= 8.6 and < 9), the following instructions will build the MCTrace tool:
+
+#+BEGIN_SRC
+
+git submodule update --init
+ln -s cabal.project.local cabal.project
+cabal configure pkg:mctrace
+cabal build pkg:mctrace
+
+#+END_SRC
+
+* Roadmap
+
+Some of the things that MCTrace will eventually support include (in no particular order):
+- Support for multiple architectures (the underlying binary rewriter supports x86_64, PowerPC, and AArch32)
+- Support for more probe providers
+- Support for firmware formats
+- Support for more methods of telemetry collection
+- Integrate binary verification (e.g., https://github.com/GaloisInc/pate) to build assurance that the instrumentation does not interfere with the program
+- Additional code generation paths through C (for portability)
