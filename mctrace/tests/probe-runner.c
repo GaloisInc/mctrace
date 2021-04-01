@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
 
   // Allocate the requested amount of global storage for the probes
   void* globalStorage = calloc(nBytes, 1);
+  void** globalVar = &globalStorage;
   void* hdl = dlopen(probesPath, RTLD_NOW);
   if(!hdl) {
     fprintf(stderr, "Error loading shared library %s\n", probesPath);
@@ -78,7 +79,7 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "Could not load probe: %s\n", buffer);
       return 5;
     }
-    probe(globalStorage);
+    probe(globalVar);
     memset(buffer, 0, PROBE_BUF_SIZE);
   }
 

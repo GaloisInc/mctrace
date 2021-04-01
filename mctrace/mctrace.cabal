@@ -18,10 +18,20 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     MCTrace
+                       MCTrace.Analysis
+                       MCTrace.Arch.X86
+                       MCTrace.Arch.X86.Providers
+                       MCTrace.Arch.X86.Setup
+                       MCTrace.Codegen
                        MCTrace.Codegen.LLVM
+                       MCTrace.Exceptions
+                       MCTrace.Loader
+                       MCTrace.ProbeProvider
   other-modules:       MCTrace.Panic
   -- other-extensions:
   build-depends:       base >=4.10 && < 5,
+                       binary,
+                       bytestring,
                        bv-sized,
                        containers,
                        exceptions >= 0.9 && < 0.11,
@@ -30,19 +40,32 @@ library
                        panic >= 0.4 && < 0.5,
                        parameterized-utils >= 2 && < 2.2,
                        prettyprinter >= 1.7 && < 1.8,
+                       lens >= 4 && < 6,
                        llvm-hs-pure >= 9 && < 10,
+                       llvm-hs,
+                       renovate,
+                       elf-edit,
+                       flexdis86,
+                       macaw-base,
+                       macaw-loader,
+                       macaw-loader-x86,
+                       macaw-symbolic,
+                       macaw-x86-symbolic,
+                       renovate,
+                       renovate-x86,
                        language-dtrace,
-                       text
+                       text,
+                       utf8-string
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat
 
 executable mctrace
   main-is:             Main.hs
-  -- other-modules:
-  -- other-extensions:
+  other-modules:       Options
   build-depends:       base,
                        aeson >= 1.4 && < 1.6,
+                       binary,
                        bytestring,
                        containers,
                        optparse-applicative >= 0.16 && < 0.17,
@@ -51,6 +74,15 @@ executable mctrace
                        llvm-hs,
                        lumberjack,
                        text,
+                       elf-edit,
+                       crucible,
+                       macaw-loader,
+                       macaw-loader-x86,
+                       macaw-symbolic,
+                       macaw-x86-symbolic,
+                       prettyprinter,
+                       renovate,
+                       renovate-x86,
                        language-dtrace,
                        mctrace
   hs-source-dirs:      tools/mctrace

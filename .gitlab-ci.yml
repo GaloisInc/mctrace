@@ -13,6 +13,9 @@ default:
     - wget https://downloads.haskell.org/~ghcup/0.1.14/x86_64-linux-ghcup-0.1.14 -O $HOME/.ghcup/bin/ghcup
     - chmod +x $HOME/.ghcup/bin/ghcup
     - ghcup install cabal
+    - git config --global url."https://github.com/".insteadOf "git@github.com:"
+    - git config --global url."https://".insteadOf "git://"
+    - git submodule update --init
 
 
 
