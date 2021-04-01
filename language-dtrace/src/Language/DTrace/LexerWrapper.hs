@@ -196,6 +196,9 @@ prettySourceRangeLong x
   pfrom = sourceFrom x
   pto   = sourceTo x
 
+instance PP.Pretty SourceRange where
+  pretty r = PP.pretty (prettySourceRangeLong r)
+
 prettySourceRangeMsg :: SourceRange -> String -> String
 prettySourceRangeMsg r m =
   prettySourceRangeLong r ++ ": " ++ m

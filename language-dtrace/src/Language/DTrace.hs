@@ -3,6 +3,7 @@ module Language.DTrace (
   , P.parseDTrace
   , TC.typeCheck
   , DP.ProbeDescription(..)
+  , DP.probeDescriptionMatches
   , TC.TypeError(..)
   ) where
 

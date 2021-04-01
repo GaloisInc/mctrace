@@ -1,4 +1,4 @@
 int x;
-:::read {
+::read:entry {
   x = x + 1;
 }

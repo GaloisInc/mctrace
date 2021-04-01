@@ -1,82 +1,43 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 module Main ( main ) where
 
 import qualified Control.Exception as X
 import qualified Data.Aeson as DA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ElfEdit as DE
 import qualified Data.Functor.Const as C
 import qualified Data.Map.Strict as Map
 import qualified Data.Parameterized.Context as Ctx
-import qualified Data.Text.IO as TIO
-import qualified LLVM.CodeGenOpt as LLCGO
-import qualified LLVM.CodeModel as LLC
+import qualified Data.Parameterized.NatRepr as PN
+import           Data.Word ( Word32 )
 import qualified LLVM.Context as LLCX
 import qualified LLVM.Module as LLM
-import qualified LLVM.Relocation as LLR
 import qualified LLVM.Target as LLT
-import qualified Options.Applicative as O
+import qualified Lumberjack as LJ
+import qualified Options.Applicative as OA
+import qualified Prettyprinter as PP
+import qualified Prettyprinter.Render.Text as PPT
+import qualified System.Exit as SE
+import qualified System.IO as SI
 
-import qualified Language.DTrace as LD
+import qualified Data.Macaw.BinaryLoader as MBL
+import           Data.Macaw.BinaryLoader.X86 ()
+import           Data.Macaw.X86.Symbolic ()
+import qualified Lang.Crucible.FunctionHandle as LCF
+import qualified Renovate as R
+import qualified Renovate.Arch.X86_64 as RX
+
 import qualified Language.DTrace.Syntax.Typed as LDT
-
+import qualified MCTrace.Analysis as MA
+import qualified MCTrace.Arch.X86 as MAX
+import qualified MCTrace.Codegen as MC
 import qualified MCTrace.Codegen.LLVM as MCL
+import qualified MCTrace.Exceptions as ME
+import qualified MCTrace.Loader as ML
 
-data Options =
-  Options { dtraceFile :: FilePath
-          , llvmAsmFile :: Maybe FilePath
-          , asmFile :: Maybe FilePath
-          , objFile :: Maybe FilePath
-          , saveVarMapping :: Maybe FilePath
-          }
-
-options :: O.ParserInfo Options
-options = O.info (O.helper <*> parser)
-          ( O.fullDesc
-          <> O.progDesc "Instrument a binary with trace points"
-          )
-  where
-    parser = Options <$> O.strOption
-                          ( O.long "script"
-                          <> O.metavar "FILE"
-                          <> O.help "A DTrace script defining the probes to inject into the binary"
-                          )
-                     <*> O.optional (O.strOption
-                           ( O.long "save-llvm-asm"
-                           <> O.metavar "FILE"
-                           <> O.help "A file to save generated LLVM assembly to"
-                           ))
-                     <*> O.optional (O.strOption
-                           ( O.long "save-asm"
-                           <> O.metavar "FILE"
-                           <> O.help "A file to save generated machine assembly to"
-                           ))
-                     <*> O.optional (O.strOption
-                           ( O.long "save-obj"
-                           <> O.metavar "FILE"
-                           <> O.help "A file to save generated object file to"
-                           ))
-                     <*> O.optional (O.strOption
-                           ( O.long "save-var-mapping"
-                           <> O.metavar "FILE"
-                           <> O.help "Save the mapping of variable names to offsets into storage for global variables"
-                           ))
-
-data TraceException = DTraceParseFailure FilePath X.SomeException
-                    | DTraceTypeCheckFailure FilePath [LD.TypeError]
-  deriving (Show)
-
-instance X.Exception TraceException
-
-loadProbes :: Options -> IO LDT.Probes
-loadProbes opts = do
-  let scriptFile = dtraceFile opts
-  scriptText <- TIO.readFile scriptFile
-  case LD.parseDTrace scriptFile scriptText of
-    Left err -> X.throwIO (DTraceParseFailure scriptFile err)
-    Right decls ->
-      case LD.typeCheck decls of
-        Left errs -> X.throwIO (DTraceTypeCheckFailure scriptFile errs)
-        Right probes -> return probes
+import qualified Options as O
 
 withOptional :: Maybe a -> (a -> IO ()) -> IO ()
 withOptional ma k =
@@ -84,28 +45,96 @@ withOptional ma k =
     Nothing -> return ()
     Just a -> k a
 
+
+-- | The action to run for each supported architecture
+--
+-- This tool both analyzes binaries and rewrites them, so it needs to request
+-- all supported features from renovate using the 'R.AnalyzeAndRewrite' type
+-- (which is partially applied here)
+--
+-- FIXME: Move this to a new module, also split out the code to index probes to
+-- their offsets in the text section of the probe file (and also handle the
+-- validation of that file)
+archConfigurations
+  :: MC.ProbeIndex globals w
+  -> [(R.Architecture, R.SomeConfig (R.AnalyzeAndRewrite MA.LogEvent) (MA.ProbeLocationAnalysisResult globals))]
+archConfigurations probes =
+  [ (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr (RX.config (MAX.x86Rewriter probes)))
+  ]
+
+saveLLVMDebugInfo
+  :: O.IOptions
+  -> LLT.TargetMachine
+  -> LLM.Module
+  -> BS.ByteString
+  -> IO ()
+saveLLVMDebugInfo iopts tm nativeModule objBytes = do
+  withOptional (O.iLLVMAsmFile iopts) $ \path -> do
+      bs <- LLM.moduleLLVMAssembly nativeModule
+      BS.writeFile path bs
+  withOptional (O.iAsmFile iopts) $ \path -> do
+      bs <- LLM.moduleTargetAssembly tm nativeModule
+      BS.writeFile path bs
+  withOptional (O.iObjFile iopts) $ \path -> do
+      BS.writeFile path objBytes
+
+globalsSize :: Ctx.Assignment LDT.GlobalVariable globals
+            -> Ctx.Assignment (C.Const Word32) globals
+            -> Int
+globalsSize _varDefs varOffsets = 8 * Ctx.sizeInt (Ctx.size varOffsets)
+
+renovateLogger :: LJ.LogAction IO R.Diagnostic
+renovateLogger = LJ.LogAction $ \diag -> do
+  SI.hPutStrLn SI.stderr (show diag)
+
+instrument :: O.IOptions -> IO ()
+instrument iopts = do
+  probes <- ML.loadProbes (O.iDTraceFile iopts)
+  someHeader <- ML.loadBinary (O.iInputExecutableFile iopts)
+  case MCL.compileProbesLLVM "dtraceProbes" probes of
+    MCL.CompiledProbes gvars gvarOffsets namedProbes llvmModule -> do
+      LLT.initializeAllTargets
+      MCL.withLLVMOptions someHeader $ \tm -> do
+        LLCX.withContext $ \ctx -> LLM.withModuleFromAST ctx llvmModule $ \nativeModule -> do
+          -- Construct the object file containing the probe definitions from our
+          -- LLVM IR; this must be invoked before the rewriter, as the probes
+          -- are a required argument to the rewriter
+          objBytes <- LLM.moduleObject tm nativeModule
+          saveLLVMDebugInfo iopts tm nativeModule objBytes
+
+          -- Write out the required metadata
+          let extractVar acc idx = (LDT.globalVarName (gvars Ctx.! idx), C.getConst (gvarOffsets Ctx.! idx)) : acc
+          let mappingFileBytes = DA.encode (Map.fromList (Ctx.forIndex (Ctx.size gvars) extractVar []))
+          BSL.writeFile (O.iVarMappingFile iopts) mappingFileBytes
+
+          DE.SomeElf mcProbeELF <- ML.loadGeneratedProbes objBytes
+          -- file, bytes
+          let storageFile = O.iPersistenceFile iopts
+          let storageSize = globalsSize gvars gvarOffsets
+          probeIndex <- case MC.indexELFProbes namedProbes mcProbeELF storageFile (fromIntegral storageSize) of
+            Left err -> X.throwIO err
+            Right idx -> return idx
+
+          hdlAlloc <- LCF.newHandleAllocator
+
+          -- Use the binary rewriter to insert the generated code and add calls
+          -- to the probes at appropriate locations
+          let configs = archConfigurations probeIndex
+          R.withElfConfig someHeader configs $ \renovateConfig headerInfo loadedBinary -> do
+            let strat = R.LayoutStrategy R.Parallel R.BlockGrouping R.AlwaysTrampoline
+            (newElf, _, _, _) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
+            BSL.writeFile (O.iOutputExecutableFile iopts) (DE.renderElf newElf)
+            return ()
+
+
+handleMCTraceErrors :: ME.TraceException -> IO ()
+handleMCTraceErrors te = do
+  let layout = PP.layoutPretty PP.defaultLayoutOptions
+  PPT.renderIO SI.stderr (layout (PP.pretty te <> PP.hardline))
+  SE.exitFailure
+
 main :: IO ()
 main = do
-  opts <- O.execParser options
-  probes <- loadProbes opts
-
-  case MCL.compileProbesLLVM "dtraceProbes" probes of
-    MCL.CompiledProbes gvars gvarOffsets _probes llvmModule -> do
-      LLT.initializeAllTargets
-      LLCX.withContext $ \ctx -> LLM.withModuleFromAST ctx llvmModule $ \nativeModule -> do
-        -- FIXME: Once we accept an ELF file, we'll need to use the general
-        -- 'withTargetMachine' for cross compilation
-        LLT.withHostTargetMachine LLR.Default LLC.Default LLCGO.Aggressive $ \tm -> do
-          withOptional (llvmAsmFile opts) $ \path -> do
-              bs <- LLM.moduleLLVMAssembly nativeModule
-              BS.writeFile path bs
-          withOptional (asmFile opts) $ \path -> do
-              bs <- LLM.moduleTargetAssembly tm nativeModule
-              BS.writeFile path bs
-          withOptional (objFile opts) $ \path -> do
-              bs <- LLM.moduleObject tm nativeModule
-              BS.writeFile path bs
-          withOptional (saveVarMapping opts) $ \path -> do
-            let extractVar acc idx = (LDT.globalVarName (gvars Ctx.! idx), C.getConst (gvarOffsets Ctx.! idx)) : acc
-            let bs = DA.encode (Map.fromList (Ctx.forIndex (Ctx.size gvars) extractVar []))
-            BSL.writeFile path bs
+  opts <- OA.execParser O.options
+  case opts of
+    O.Instrument iopts -> instrument iopts `X.catches` [X.Handler handleMCTraceErrors]

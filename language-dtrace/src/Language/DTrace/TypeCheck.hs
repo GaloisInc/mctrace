@@ -11,6 +11,8 @@ module Language.DTrace.TypeCheck (
     typeCheck
   , TypeErrorMessage(..)
   , TypeError(..)
+  , ppTypeError
+  , ppTypeErrorMessage
   ) where
 
 import           Control.Applicative ( (<|>) )
@@ -25,6 +27,7 @@ import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import           Numeric.Natural ( Natural )
+import qualified Prettyprinter as PP
 import           Unsafe.Coerce ( unsafeCoerce )
 
 import qualified Language.DTrace.LexerWrapper as LDL
@@ -41,14 +44,39 @@ data TypeErrorMessage where
   TypeMismatchOnAssignment :: ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
   BinaryOperatorTypeMismatch :: String -> ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
   InvalidOperandTypeForOperator :: String -> ST.Repr tp -> TypeErrorMessage
-  TypeErrorMessage :: TypeErrorMessage
 
 deriving instance Show TypeErrorMessage
+
+instance PP.Pretty TypeErrorMessage where
+  pretty = ppTypeErrorMessage
+
+ppTypeErrorMessage :: TypeErrorMessage -> PP.Doc ann
+ppTypeErrorMessage tag =
+  case tag of
+    IndeterminateInitializerType e -> PP.pretty "Could not determine the initializer type for the expression " <> PP.viaShow e
+    InvalidAssignmentLHS e -> PP.pretty "Expression is not a valid target for an assignment: " <> PP.viaShow e
+    SignedLiteralOutOfRange nr n ->
+      PP.pretty "Signed literal " <> PP.pretty n <> PP.pretty " is too large for type of width " <> PP.viaShow (PN.natValue nr)
+    UnsignedLiteralOutOfRange nr n ->
+      PP.pretty "Unsigned literal " <> PP.pretty n <> PP.pretty " is too large for type of width " <> PP.viaShow (PN.natValue nr)
+    TypeMismatchOnAssignment rhs varTy ->
+      PP.pretty "Invalid assignment of expression with type " <> PP.viaShow rhs <> PP.pretty " to location with type " <> PP.viaShow varTy
+    BinaryOperatorTypeMismatch op lhs rhs ->
+      PP.pretty "Invalid operands to operator " <> PP.pretty op <> PP.pretty ": " <> PP.viaShow lhs <> PP.pretty " and " <> PP.viaShow rhs
+    InvalidOperandTypeForOperator op tty ->
+      PP.pretty "Invalid operand type(s) for operator " <> PP.pretty op <> PP.pretty ": " <> PP.viaShow tty
 
 data TypeError where
   TypeError :: LDL.SourceRange -> TypeErrorMessage -> TypeError
 
 deriving instance Show TypeError
+
+instance PP.Pretty TypeError where
+  pretty = ppTypeError
+
+ppTypeError :: TypeError -> PP.Doc ann
+ppTypeError (TypeError range tag) =
+  PP.pretty range <> PP.pretty ": " <> PP.pretty tag
 
 typeError :: (LDL.HasRange a) => a -> TypeErrorMessage -> TypeError
 typeError loc = TypeError (LDL.range loc)

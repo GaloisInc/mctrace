@@ -11,14 +11,18 @@
 module MCTrace.Codegen.LLVM (
     CompiledProbes(..)
   , compileProbesLLVM
+  , withLLVMOptions
   ) where
 
+import qualified Control.Exception as X
 import qualified Control.Monad.Reader as CMR
 import qualified Control.Monad.State as CMS
 import qualified Control.Monad.Trans as CMT
 import qualified Data.BitVector.Sized as DBS
+import qualified Data.ElfEdit as DE
 import qualified Data.Functor.Const as C
 import qualified Data.Functor.Identity as I
+import qualified Data.Map.Strict as Map
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.String ( fromString )
@@ -28,9 +32,14 @@ import qualified LLVM.AST.AddrSpace as IRA
 import qualified LLVM.AST.Constant as IRC
 import qualified LLVM.AST.Float as IRF
 import qualified LLVM.AST.Type as IRT
+import qualified LLVM.CodeGenOpt as LLCGO
+import qualified LLVM.CodeModel as LLC
 import qualified LLVM.IRBuilder as IRB
+import qualified LLVM.Relocation as LLR
+import qualified LLVM.Target as LLT
 import qualified Language.DTrace.Syntax.Typed as ST
 
+import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Panic as MP
 
 -- | The global translation environment, which records the offset from the
@@ -94,7 +103,10 @@ globalVarOperand (GlobalStore storeOp) idx = do
   gvs <- CMT.lift (CMR.asks globalVars)
   globalOffsets <- CMT.lift (CMR.asks globalVarOffsets)
   let off = C.getConst (globalOffsets Ctx.! idx)
-  ptr <- IRB.gep storeOp [IRB.int32 (toInteger off)]
+  -- The storage operand is a `char**`, so we need an initial dereference to get
+  -- the `char*` that we can GEP
+  ptr0 <- IRB.load storeOp 0
+  ptr <- IRB.gep ptr0 [IRB.int32 (toInteger off)]
   let ptrType = IRT.PointerType (reprToType (ST.globalVarRepr (gvs Ctx.! idx))) (IRA.AddrSpace 0)
   IRB.bitcast ptr ptrType
 
@@ -162,9 +174,12 @@ compileProbeBody globalOperands localVars stmts = do
 
 data GlobalStore = GlobalStore IR.Operand
 
+pointerType :: IRT.Type -> IRT.Type
+pointerType t = IRT.PointerType t (IRA.AddrSpace 0)
+
 compileProbe :: (ST.Probe globals, String) -> Builder globals ()
 compileProbe (ST.Probe _descs _guard localVars stmts, fname) = do
-  let storage = (IRT.PointerType (IRT.IntegerType 8) (IRA.AddrSpace 0), IRB.ParameterName (fromString "storage"))
+  let storage = (pointerType (pointerType (IRT.IntegerType 8)), IRB.ParameterName (fromString "storage"))
   _ <- IRB.function (IR.mkName fname) [storage] IRT.VoidType $ \operands ->
     case operands of
       [storageOp] -> compileProbeBody (GlobalStore storageOp) localVars stmts
@@ -215,6 +230,22 @@ compileProbesLLVM moduleName (ST.Probes globalVarDefs _globalMap probes) =
     initialEnv = Env { globalVarOffsets = varOffsets
                      , globalVars = globalVarDefs
                      }
+
+-- | Build an LLVM 'LLT.TargetMachine' based on a loaded ELF file
+withLLVMOptions :: DE.SomeElf DE.ElfHeaderInfo
+                -> (LLT.TargetMachine -> IO a)
+                -> IO a
+withLLVMOptions (DE.SomeElf ehi) k =
+  case DE.headerMachine (DE.header ehi) of
+    DE.EM_X86_64 -> do
+      let triple = fromString "x86_64-unknown-linux-gnu"
+      (t, _) <- LLT.lookupTarget Nothing triple
+      let cpu = fromString ""
+      let features = Map.empty
+      LLT.withTargetOptions $ \targetOpts -> do
+        LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
+    m -> X.throwIO (ME.UnsupportedArchitecture m)
+
 
 {- Note [CodeGen Strategy]
 
