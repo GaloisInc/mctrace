@@ -11,7 +11,6 @@ import qualified Data.List.NonEmpty as DLN
 import qualified Data.Macaw.BinaryLoader as MBL
 import           Data.Macaw.BinaryLoader.X86 ()
 import qualified Data.Macaw.Discovery.State as DMD
-import qualified Data.Macaw.Memory as MM
 import           Data.Macaw.X86.Symbolic ()
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( fromMaybe, mapMaybe )
@@ -34,17 +33,28 @@ import qualified MCTrace.ProbeProvider as MP
 -- way that allows us to record the new addresses.  These addresses can then
 -- factor into the more general analysis.
 preAnalyze
-  :: (R.HasAnalysisEnv env, R.HasSymbolicBlockMap env)
+  :: (R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, MBL.BinaryLoader RX.X86_64 binFmt)
   => MC.ProbeIndex globals w
   -> env RX.X86_64 binFmt
   -> R.RewriteM MA.LogEvent RX.X86_64 (MA.InjectedAssets globals RX.X86_64)
-preAnalyze probeIndex _env = do
+preAnalyze probeIndex env = do
   probeAddrs <- DT.forM (MC.probeOffsets probeIndex) $ \(p, probeSymbol, bytes) -> do
     symPtr <- R.injectFunction ("__mctrace_" ++ probeSymbol) bytes
     return (p, symPtr)
   storePtrAddr <- R.newGlobalVar "__mctrace_probeStore" (fromIntegral (PN.natValue (MC.pointerWidth probeIndex)) `div` 8)
+
+  let loadedBinary = R.analysisLoadedBinary env
+  let mem = MBL.memoryImage loadedBinary
+  let Just (origEntrySegoff DLN.:| _) = MBL.entryPoints loadedBinary
+  let Just origEntryAddr = R.concreteFromSegmentOff mem origEntrySegoff
+
+  let storageFile = MC.probeStorageFile probeIndex
+  let storageBytes = MC.probeStorageBytes probeIndex
+  let initCode = MAS.linuxInitializationCode storageFile storageBytes storePtrAddr RX.X86Repr origEntryAddr
+  setupSymAddr <- R.injectInstructions "__mctrace_setup" RX.X86Repr initCode
   return MA.InjectedAssets { MA.injectedProbeAddrs = probeAddrs
                            , MA.injectedStorePointer = storePtrAddr
+                           , MA.injectedEntryAddr = setupSymAddr
                            }
 
 indexFunctionEntries
@@ -67,6 +77,7 @@ analyze
 analyze env assets =
   return MA.ProbeLocationAnalysisResult { MA.injectedAssets = assets
                                         , MA.functionEntryPoints = indexFunctionEntries env
+                                        , MA.symbolicAddresses = fmap R.symbolicBlockSymbolicAddress (R.getSymbolicBlockMap env)
                                         }
 
 -- | Run another pass before rewriting that enables global modifications
@@ -79,57 +90,26 @@ preRewrite
   -> R.RewriteM MA.LogEvent RX.X86_64 (C.Const () RX.X86_64)
 preRewrite _ _ = return (C.Const ())
 
--- | Return true if this 'R.SymbolicBlock' is the program entry point
---
--- Note that the 'MBL.entryPoints' function always returns the named program
--- entry point as the first element
-isEntryPoint
-  :: (R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, MBL.BinaryLoader RX.X86_64 binFmt)
-  => env RX.X86_64 binFmt
-  -> R.SymbolicBlock RX.X86_64
-  -> Bool
-isEntryPoint env symBlock =
-  Just (R.absoluteAddress (R.symbolicBlockOriginalAddress symBlock)) == MM.segoffAsAbsoluteAddr programEntry
-  where
-    binary = R.analysisLoadedBinary env
-    Just (programEntry DLN.:| _) = MBL.entryPoints binary
-
--- | Prepend a list to a non-empty list, producing another non-empty list (even if the left-hand list is empty)
-prepend :: [a] -> DLN.NonEmpty a -> DLN.NonEmpty a
-prepend l nel =
-  case l of
-    [] -> nel
-    (i1:rest) -> (i1 DLN.:| rest) <> nel
-
 -- | Rewrite the binary at the basic block level
 --
 -- The rewriter is highly local, but has access to the analysis and pre-rewriter
 -- states.
 rewrite
-  :: (R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, MBL.BinaryLoader RX.X86_64 binFmt)
+  :: (R.HasAnalysisEnv env, R.HasSymbolicBlockMap env)
   => MC.ProbeIndex globals w
   -> env RX.X86_64 binFmt
   -> MA.ProbeLocationAnalysisResult globals RX.X86_64
   -> C.Const () RX.X86_64
   -> R.SymbolicBlock RX.X86_64
   -> R.RewriteM MA.LogEvent RX.X86_64 (Maybe (R.ModifiedInstructions RX.X86_64))
-rewrite probeIndex env probeLocations _ symBlock =
+rewrite _probeIndex _env probeLocations _ symBlock =
   R.withSymbolicInstructions symBlock $ \irepr insns -> do
-    let storageFile = MC.probeStorageFile probeIndex
-    let storageBytes = MC.probeStorageBytes probeIndex
-    let globalAddr = MA.injectedStorePointer (MA.injectedAssets probeLocations)
-    let initCode = MAS.linuxInitializationCode storageFile storageBytes globalAddr irepr
     let probeInserters = mapMaybe (\p -> MP.providerMatcher p probeLocations symBlock) MAP.providers
     case probeInserters of
-      []
-        | isEntryPoint env symBlock -> do
-            return (Just (R.ModifiedInstructions irepr (initCode `prepend` insns)))
-        | otherwise -> return Nothing
+      [] -> return Nothing
       _ -> do
           let insns' = foldr (\p is -> MP.insertProbe p irepr is) insns probeInserters
-          if | isEntryPoint env symBlock ->
-               return (Just (R.ModifiedInstructions irepr (initCode `prepend` insns')))
-             | otherwise -> return (Just (R.ModifiedInstructions irepr insns'))
+          return (Just (R.ModifiedInstructions irepr insns'))
 
 x86Rewriter
   :: (MBL.BinaryLoader RX.X86_64 binFmt)

@@ -3,15 +3,19 @@
 module Main ( main ) where
 
 import qualified Control.Exception as X
+import           Control.Lens ( (^.) )
 import qualified Data.Aeson as DA
+import qualified Data.Binary.Get as DBG
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ElfEdit as DE
 import qualified Data.Functor.Const as C
 import qualified Data.Map.Strict as Map
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
-import           Data.Word ( Word32 )
+import qualified Data.Traversable as T
+import           Data.Word ( Word32, Word64 )
 import qualified LLVM.Context as LLCX
 import qualified LLVM.Module as LLM
 import qualified LLVM.Target as LLT
@@ -19,6 +23,7 @@ import qualified Lumberjack as LJ
 import qualified Options.Applicative as OA
 import qualified Prettyprinter as PP
 import qualified Prettyprinter.Render.Text as PPT
+import qualified System.Directory as SD
 import qualified System.Exit as SE
 import qualified System.IO as SI
 
@@ -36,6 +41,7 @@ import qualified MCTrace.Codegen as MC
 import qualified MCTrace.Codegen.LLVM as MCL
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Loader as ML
+import qualified MCTrace.Panic as MP
 
 import qualified Options as O
 
@@ -122,10 +128,47 @@ instrument iopts = do
           let configs = archConfigurations probeIndex
           R.withElfConfig someHeader configs $ \renovateConfig headerInfo loadedBinary -> do
             let strat = R.LayoutStrategy R.Parallel R.BlockGrouping R.AlwaysTrampoline
-            (newElf, _, _, _) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
-            BSL.writeFile (O.iOutputExecutableFile iopts) (DE.renderElf newElf)
-            return ()
+            (newElf0, ares, rwInfo, _) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
+            let symbolicEntryAddr = MA.injectedEntryAddr (MA.injectedAssets ares)
+            case Map.lookup symbolicEntryAddr (rwInfo ^. R.riSymbolicToConcreteMap) of
+              Nothing -> MP.panic MP.ELFRewriter "instrument" ["No new entry point address allocated"]
+              Just concEntryAddr -> do
+                let newElf1 = newElf0 { DE.elfEntry = fromIntegral (R.absoluteAddress concEntryAddr) }
+                let exeFile = O.iOutputExecutableFile iopts
+                BSL.writeFile exeFile (DE.renderElf newElf1)
+                p0 <- SD.getPermissions exeFile
+                SD.setPermissions exeFile (SD.setOwnerExecutable True p0)
+                return ()
 
+readMappingFile
+  :: FilePath
+  -> IO (Map.Map String Word32)
+readMappingFile p = do
+  dataBytes <- BSL.readFile p
+  case DA.eitherDecode dataBytes of
+    Left err -> X.throwIO (ME.ErrorReadingMappingFile p err)
+    Right m -> return m
+
+decodePersistedOffset
+  :: FilePath
+  -> BSL.ByteString
+  -> Word32
+  -> IO Word64
+decodePersistedOffset p bs off =
+  case DBG.runGetOrFail DBG.getWord64le (BSL.drop (fromIntegral off) bs) of
+    Left (_, _, msg) -> X.throwIO (ME.ErrorReadingPersistenceFile p off msg)
+    Right (_, _, w) -> return w
+
+extract :: O.EOptions -> IO ()
+extract eopts = do
+  let persistFile = O.ePersistenceFile eopts
+  persistedBytes <- BSL.readFile persistFile
+  offsetMap <- readMappingFile (O.eVarMappingFile eopts)
+  valueMap <- T.traverse (decodePersistedOffset persistFile persistedBytes) offsetMap
+  let output = DA.encode valueMap
+  case O.eExtractOutput eopts of
+    Nothing -> BSC.hPutStrLn SI.stdout output
+    Just outPath -> BSL.writeFile outPath output
 
 handleMCTraceErrors :: ME.TraceException -> IO ()
 handleMCTraceErrors te = do
@@ -138,3 +181,4 @@ main = do
   opts <- OA.execParser O.options
   case opts of
     O.Instrument iopts -> instrument iopts `X.catches` [X.Handler handleMCTraceErrors]
+    O.Extract eopts -> extract eopts `X.catches` [X.Handler handleMCTraceErrors]

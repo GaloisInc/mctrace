@@ -5,9 +5,48 @@ The MCTrace tool enables users to insert instrumentation into native binaries in
 Once the user has identified a program that they would like to instrument (e.g., for debugging purposes or to collect telemetry), they would:
 
 1. Write a DTrace script that collects the desired data
-2. Run the ~mctrace~ tool to instrument the binary as directed by the script (~mctrace --binary=foo --script=probes.d --output=foo.instrumented --telemetry-file=/tmp/telemetry --variable-mapping=foo.mapping~)
+2. Run the ~mctrace~ tool in ~instrument~ mode to insert probes into the binary as directed by the script
 3. Run the instrumented binary
-4. Interpret the resulting telemetry, converting it to JSON for further analysis (~mctrace --interpret=/tmp/telemetry --variable-mapping=foo.mapping --output=foo.telemetry.json~)
+4. Run the ~mctrace~ tool in ~extract~ mode to interpret the resulting telemetry, converting it to JSON for further analysis
+
+** Example
+
+In the following example, the user wants to instrument ~foo.exe~ to collect telemetry.  Assume that they want to count the number of times the program reads from a file.  Their probe script would look like:
+
+#+BEGIN_SRC
+int read_calls;
+::read:entry {
+  read_calls = read_calls + 1;
+}
+#+END_SRC
+
+This probe increments the ~read_calls~ variable every time the ~read~ system call is entered.  Note that all probe variables are zero initialized.  The user would invoke ~mctrace~ as follows:
+
+#+BEGIN_SRC
+# Instrument the binary
+$ mctrace instrument --binary=foo.exe \
+                     --output=foo.instrumented.exe \
+                     --var-mapping=foo.mapping.json \
+                     --persistence-file=/tmp/foo.telemetry.bin \
+                     --script=probes.d
+
+# Run the binary
+$ ./foo.instrumented.exe
+
+# Interpret the collected telemetry
+$ mctrace extract --var-mapping=foo.mapping.json \
+                  --persistence-file=/tmp/foo.telemetry.bin
+
+> {"read_calls": 1}
+
+#+END_SRC
+
+- The ~foo.exe~ binary and the ~probes.d~ probe script are provided to ~mctrace~ as inputs.
+- The ~output~ option tells ~mctrace~ the name of the binary to produce
+- The ~persistence-file~ option tells ~mctrace~ where the instrumented binary should save its collected telemetry when it runs (note that any existing files at that location will be overwritten)
+- The ~var-mapping~ option tells ~mctrace~ where to record metadata that allows it to later interpret the collected telemetry
+
+The ~extract~ mode of the tool uses the mapping file to interpret the persisted telemetry.  In this example, the program only called ~read~ once.
 
 * Design
 
@@ -29,6 +68,8 @@ cabal configure pkg:mctrace
 cabal build pkg:mctrace
 
 #+END_SRC
+
+Note that ~mctrace~ currently requires LLVM 9 to be installed and accessible for code generation.
 
 * Roadmap
 

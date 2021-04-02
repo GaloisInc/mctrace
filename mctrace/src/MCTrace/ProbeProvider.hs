@@ -33,7 +33,9 @@ instance Monoid (ProbeInserter arch) where
 data ProbeProvider globals arch =
   ProbeProvider { providerName :: LD.ProbeDescription
                 , providerDescription :: PP.Doc ()
-                , providerMatcher :: MA.ProbeLocationAnalysisResult globals arch -> R.SymbolicBlock arch -> Maybe (ProbeInserter arch)
+                , providerMatcher :: MA.ProbeLocationAnalysisResult globals arch
+                                  -> R.SymbolicBlock arch
+                                  -> Maybe (ProbeInserter arch)
                 -- ^ A function that returns a 'ProbeInserter' if this provider
                 -- can be applied to the given 'R.SymbolicBlock'
                 --
