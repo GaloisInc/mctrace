@@ -22,10 +22,13 @@ data InjectedAssets globals arch =
                  -- The actual memory will be allocated at run-time (via mmap),
                  -- but this pointer gives us a location to store the actual
                  -- address and to access it from at run-time
-                 --
-                 -- FIXME: Does this need to be a symbolic address?
                  , injectedProbeAddrs :: [(LDT.Probe globals, R.SymbolicAddress arch)]
                  -- ^ The symbolic address assigned to each probe
+                 , injectedEntryAddr :: R.SymbolicAddress arch
+                 -- ^ The address of the injected startup code
+                 --
+                 -- We need to translate this to a concrete address at the very
+                 -- end so that we can replace the entry point with it
                  }
 
 -- | This is the result produced from the (architecture-specific) analysis of
@@ -37,4 +40,7 @@ data ProbeLocationAnalysisResult globals arch =
   ProbeLocationAnalysisResult { injectedAssets :: InjectedAssets globals arch
                               , functionEntryPoints :: Map.Map BS.ByteString (R.ConcreteAddress arch)
                               -- ^ An index of function names to their entry points
+                              , symbolicAddresses :: Map.Map (R.ConcreteAddress arch) (R.SymbolicAddress arch)
+                              -- ^ The mapping of concrete to symbolic addresses
+                              -- (to be used in conjunction with 'functionEntryPoints')
                               }

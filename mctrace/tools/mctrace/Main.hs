@@ -3,6 +3,7 @@
 module Main ( main ) where
 
 import qualified Control.Exception as X
+import           Control.Lens ( (^.) )
 import qualified Data.Aeson as DA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -36,6 +37,7 @@ import qualified MCTrace.Codegen as MC
 import qualified MCTrace.Codegen.LLVM as MCL
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Loader as ML
+import qualified MCTrace.Panic as MP
 
 import qualified Options as O
 
@@ -122,9 +124,14 @@ instrument iopts = do
           let configs = archConfigurations probeIndex
           R.withElfConfig someHeader configs $ \renovateConfig headerInfo loadedBinary -> do
             let strat = R.LayoutStrategy R.Parallel R.BlockGrouping R.AlwaysTrampoline
-            (newElf, _, _, _) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
-            BSL.writeFile (O.iOutputExecutableFile iopts) (DE.renderElf newElf)
-            return ()
+            (newElf0, ares, rwInfo, _) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
+            let symbolicEntryAddr = MA.injectedEntryAddr (MA.injectedAssets ares)
+            case Map.lookup symbolicEntryAddr (rwInfo ^. R.riSymbolicToConcreteMap) of
+              Nothing -> MP.panic MP.ELFRewriter "instrument" ["No new entry point address allocated"]
+              Just concEntryAddr -> do
+                let newElf1 = newElf0 { DE.elfEntry = fromIntegral (R.absoluteAddress concEntryAddr) }
+                BSL.writeFile (O.iOutputExecutableFile iopts) (DE.renderElf newElf1)
+                return ()
 
 
 handleMCTraceErrors :: ME.TraceException -> IO ()

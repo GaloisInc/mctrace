@@ -27,7 +27,7 @@ library
                        MCTrace.Exceptions
                        MCTrace.Loader
                        MCTrace.ProbeProvider
-  other-modules:       MCTrace.Panic
+                       MCTrace.Panic
   -- other-extensions:
   build-depends:       base >=4.10 && < 5,
                        binary,
@@ -70,6 +70,7 @@ executable mctrace
                        containers,
                        optparse-applicative >= 0.16 && < 0.17,
                        parameterized-utils,
+                       lens,
                        llvm-hs-pure,
                        llvm-hs,
                        lumberjack,

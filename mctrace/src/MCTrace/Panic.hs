@@ -7,6 +7,7 @@ module MCTrace.Panic (
 import qualified Panic as P
 
 data MCTraceComponent = LLVMCodegen
+                      | ELFRewriter
   deriving (Show)
 
 instance P.PanicComponent MCTraceComponent where

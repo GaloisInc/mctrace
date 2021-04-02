@@ -5,6 +5,8 @@ module MCTrace.Arch.X86.Setup (
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as DBU
+import qualified Data.Foldable as F
+import qualified Data.List.NonEmpty as DLN
 import           Data.Word ( Word32 )
 
 import qualified Flexdis86 as F86
@@ -34,9 +36,9 @@ applyRegisters
 applyRegisters repr mnemonic regs =
   fmap (\r -> i (RX.makeInstr repr mnemonic [r])) regs
 
-usedRegisters :: [F86.Value]
-usedRegisters = [ F86.QWordReg F86.RAX
-                , F86.QWordReg F86.RDI
+usedRegisters :: DLN.NonEmpty F86.Value
+usedRegisters =   F86.QWordReg F86.RAX DLN.:|
+                [ F86.QWordReg F86.RDI
                 , F86.QWordReg F86.RSI
                 , F86.QWordReg F86.RDX
                 , F86.QWordReg F86.R10
@@ -57,13 +59,12 @@ usedRegisters = [ F86.QWordReg F86.RAX
 open
   :: R.InstructionArchRepr RX.X86_64 tp
   -> FilePath
-  -> Word32
-  -> [R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64)]
-open repr path globalStoreBytes =
-  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
-                                , syscallOpen
-                                ]
-  , i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
+  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
+open repr path =
+    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
+                               , syscallOpen
+                               ]) DLN.:|
+  [ i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
                                 , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0x15)))
                                 ]
   , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI
@@ -73,9 +74,14 @@ open repr path globalStoreBytes =
                                 , F86.DWordSignedImm 384
                                 ]
   , i $ RX.makeInstr repr "syscall" []
-  , i $ RX.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset (fromIntegral globalStoreBytes + 1 + 8))]
+  , i $ RX.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset (fromIntegral jmpOff))]
   , i $ RX.rawBytes repr (DBU.fromString path <> BS.pack [0])
   ]
+  where
+    -- This is the offset to the jump over the file path
+    --
+    -- We add 1 for the NUL terminator
+    jmpOff = length path + 1
 
 -- | Truncate the file up to the necessary size: ftruncate(fd, size)
 --
@@ -83,12 +89,12 @@ open repr path globalStoreBytes =
 ftruncate
   :: R.InstructionArchRepr RX.X86_64 tp
   -> Word32
-  -> [R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64)]
+  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
 ftruncate repr globalStoreBytes =
-  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
-                                , syscallFtruncate
-                                ]
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI
+    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
+                               , syscallFtruncate
+                               ]) DLN.:|
+  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI
                                 , F86.DWordSignedImm (fromIntegral globalStoreBytes)
                                 ]
   , i $ RX.makeInstr repr "syscall" []
@@ -103,11 +109,11 @@ ftruncate repr globalStoreBytes =
 mmap
   :: R.InstructionArchRepr RX.X86_64 tp
   -> Word32
-  -> [R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64)]
+  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
 mmap repr globalStoreBytes =
-  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX, syscallMmap ]
+    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX, syscallMmap ]) DLN.:|
    -- Pass NULL as the requested address
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI, F86.DWordSignedImm 0 ]
+  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI, F86.DWordSignedImm 0 ]
    -- The number of bytes in the mapping
   , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI, F86.DWordSignedImm (fromIntegral globalStoreBytes) ]
    -- Protection flags
@@ -118,6 +124,12 @@ mmap repr globalStoreBytes =
   , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.R9, F86.DWordSignedImm 0 ]
   , i $ RX.makeInstr repr "syscall" []
   ]
+
+neconcat :: DLN.NonEmpty (DLN.NonEmpty a) -> DLN.NonEmpty a
+neconcat nel =
+  case nel of
+    (e0 DLN.:| rest) DLN.:| others ->
+      e0 DLN.:| (rest <> concat (fmap F.toList others))
 
 -- | The code sequence to initialize the probe execution environment (including global storage)
 --
@@ -136,32 +148,43 @@ linuxInitializationCode
   -- ^ The address of the global variable that will hold the pointer to the storage area
   -> R.InstructionArchRepr RX.X86_64 tp
   -- ^ The repr indicating which instruction set to use
-  -> [R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64)]
-linuxInitializationCode path globalStoreBytes globalAddr repr =
-  concat [ -- Save the registers we are going to clobber to the stack
-           applyRegisters repr "push" usedRegisters
+  -> R.ConcreteAddress RX.X86_64
+  -- ^ The original entry point to the program
+  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
+linuxInitializationCode path globalStoreBytes globalAddr repr origEntry =
+  neconcat (-- Save the registers we are going to clobber to the stack
+            applyRegisters repr "push" usedRegisters DLN.:|
+            [
          -- FIXME: Exit if %rax < 0
-         , open repr path globalStoreBytes
+              open repr path
          -- Save the FD into %rdi (as an argument to the next syscall)
-         , [i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI, F86.QWordReg F86.RAX ] ]
+         , i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI, F86.QWordReg F86.RAX ]) DLN.:| []
          , ftruncate repr globalStoreBytes
          -- Move the FD to %r8 (as the fifth argument of mmap)
-         , [i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.R8, F86.QWordReg F86.RDI ] ]
+         , i (RX.makeInstr repr "mov" [ F86.QWordReg F86.R8, F86.QWordReg F86.RDI ]) DLN.:| []
          , mmap repr globalStoreBytes
          -- Save the address returned by mmap (in %rax) into the global variable
          --
          -- We need to turn this into a symbolic reference to be fixed up later
-         , [ R.tagInstruction Nothing $
+         , (R.tagInstruction Nothing $
                RX.annotateInstrWith addMemAddr $
                RX.makeInstr repr "mov"
                [ F86.Mem64 (F86.IP_Offset_32 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                , F86.QWordReg F86.RAX
                ]
-           ]
+           ) DLN.:| []
            -- Restore saved values
-         , applyRegisters repr "pop" (reverse usedRegisters)
-         ]
+         , applyRegisters repr "pop" (DLN.reverse usedRegisters)
+         , (R.tagInstruction Nothing $
+            RX.annotateInstrWith addEntryAddr $
+            RX.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]) DLN.:| []
+         ])
   where
+    addEntryAddr (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (RX.AbsoluteAddress origEntry)
+        _ -> RX.AnnotatedOperand v RX.NoAddress
+
     addMemAddr (RX.AnnotatedOperand v _) =
       case v of
         (F86.Mem64 {}, _) -> RX.AnnotatedOperand v (RX.AbsoluteAddress globalAddr)

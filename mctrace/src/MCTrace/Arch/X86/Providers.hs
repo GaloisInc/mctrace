@@ -3,12 +3,17 @@
 --
 -- Note that the entry probes could fire *before* the syscall or *during* the
 -- syscall (i.e., in user code or in the libc wrapper), depending on the binary.
--- For static binaries, we can fire the probe in the libc wrapper.  For
--- dynamically linked binaries, we would need to fire them before (from user
--- code), because the syscall stub definitions are not available.
 --
--- Note further that, for binaries without a libc or equivalent, we would need
--- to have more specific hooks.
+-- We choose the strategy of firing probes *before* the call, as the binary
+-- rewriter has trouble rewriting the syscall wrapper functions in glibc due to
+-- misclassification of tail calls.  The disadvantage of this approach is that
+-- it is possible that some call sites could be missed due to incompleteness of
+-- the binary analysis.
+--
+-- This approach also better supports dynamically-linked binaries.
+--
+-- As a disadvantage, it does mean that indirect calls to functions will likely
+-- not be instrumented.
 module MCTrace.Arch.X86.Providers (
   providers
   ) where
@@ -19,6 +24,7 @@ import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe )
+import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Text as T
 import qualified Flexdis86 as F86
 import qualified Prettyprinter as PP
@@ -42,13 +48,6 @@ matchProvider
 matchProvider name (LDT.Probe descs _ _ _, addr) = do
   guard (F.any (LD.probeDescriptionMatches name) descs)
   return addr
-
--- | Prepend a list to a non-empty list, producing another non-empty list (even if the left-hand list is empty)
-prepend :: [a] -> DLN.NonEmpty a -> DLN.NonEmpty a
-prepend l nel =
-  case l of
-    [] -> nel
-    (i1:rest) -> (i1 DLN.:| rest) <> nel
 
 -- | Make an instruction sequence to call a probe
 --
@@ -92,8 +91,22 @@ callProbe locationAnalysis repr@RX.X86Repr probeAddr =
         _ -> RX.AnnotatedOperand v RX.NoAddress
     globalStorePtr = MA.injectedStorePointer (MA.injectedAssets locationAnalysis)
 
+withLastInstructionSymTarget
+  :: a
+  -> R.SymbolicBlock arch
+  -> (R.SymbolicAddress arch -> a)
+  -> a
+withLastInstructionSymTarget def symBlock k =
+  R.withSymbolicInstructions symBlock $ \_ insns ->
+    case R.symbolicTarget (DLN.last insns) of
+      Some (R.RelocatableTarget addr) -> k addr
+      Some R.NoTarget -> def
+
 -- | A probe that fires at the entry to `read` (the user-level wrapper around
 -- the syscall, provided by libc)
+--
+-- Precisely speaking, this provider fires when the last instruction of the
+-- block is statically a call to the syscall wrapper for read.
 --
 -- Note that this currently only works for statically linked binaries, as it
 -- inserts the probe at the entry to the syscall wrapper (which isn't accessible
@@ -113,13 +126,22 @@ readEntrySyscallProvider =
     desc = PP.hsep [ PP.pretty "Probe fires at the entry to `read` system calls"
                    ]
     matcher locationAnalysis symBlock = do
-      entryAddr <- Map.lookup (BSC.pack "read") (MA.functionEntryPoints locationAnalysis)
-      guard (R.symbolicBlockOriginalAddress symBlock == entryAddr)
-      let assets = MA.injectedAssets locationAnalysis
-      let probeSymAddrs = mapMaybe (matchProvider name) (MA.injectedProbeAddrs assets)
-      return $ MP.ProbeInserter $ \irep insns ->
-        let callSequences = concatMap (callProbe locationAnalysis irep) probeSymAddrs
-        in prepend callSequences insns
+      -- symbolic blocks have symbolic jump targets annotated on instructions;
+      -- if the last one points to 'read', we can fire the probe
+      --
+      -- The mapping from symbolic addresses to concrete addresses can be found
+      -- in the configuration (via 'R.getSymbolicBlockMap')
+      readEntryAddr <- Map.lookup (BSC.pack "read") (MA.functionEntryPoints locationAnalysis)
+      readEntrySymAddr <- Map.lookup readEntryAddr (MA.symbolicAddresses locationAnalysis)
+      withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
+        guard (readEntrySymAddr == lastSymTgt)
+        let assets = MA.injectedAssets locationAnalysis
+        let probeSymAddrs = mapMaybe (matchProvider name) (MA.injectedProbeAddrs assets)
+        return $ MP.ProbeInserter $ \irep insns ->
+          let term DLN.:| rest = DLN.reverse insns
+              callSequence = concatMap (callProbe locationAnalysis irep) probeSymAddrs
+              rinsns = term DLN.:| (reverse callSequence <> rest)
+          in DLN.reverse rinsns
 
 _readReturnSyscallProvider :: MP.ProbeProvider globals arch
 _readReturnSyscallProvider =
