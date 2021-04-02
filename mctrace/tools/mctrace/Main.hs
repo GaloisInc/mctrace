@@ -23,6 +23,7 @@ import qualified Lumberjack as LJ
 import qualified Options.Applicative as OA
 import qualified Prettyprinter as PP
 import qualified Prettyprinter.Render.Text as PPT
+import qualified System.Directory as SD
 import qualified System.Exit as SE
 import qualified System.IO as SI
 
@@ -133,7 +134,10 @@ instrument iopts = do
               Nothing -> MP.panic MP.ELFRewriter "instrument" ["No new entry point address allocated"]
               Just concEntryAddr -> do
                 let newElf1 = newElf0 { DE.elfEntry = fromIntegral (R.absoluteAddress concEntryAddr) }
-                BSL.writeFile (O.iOutputExecutableFile iopts) (DE.renderElf newElf1)
+                let exeFile = O.iOutputExecutableFile iopts
+                BSL.writeFile exeFile (DE.renderElf newElf1)
+                p0 <- SD.getPermissions exeFile
+                SD.setPermissions exeFile (SD.setOwnerExecutable True p0)
                 return ()
 
 readMappingFile
