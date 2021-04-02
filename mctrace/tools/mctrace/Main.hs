@@ -5,14 +5,17 @@ module Main ( main ) where
 import qualified Control.Exception as X
 import           Control.Lens ( (^.) )
 import qualified Data.Aeson as DA
+import qualified Data.Binary.Get as DBG
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ElfEdit as DE
 import qualified Data.Functor.Const as C
 import qualified Data.Map.Strict as Map
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
-import           Data.Word ( Word32 )
+import qualified Data.Traversable as T
+import           Data.Word ( Word32, Word64 )
 import qualified LLVM.Context as LLCX
 import qualified LLVM.Module as LLM
 import qualified LLVM.Target as LLT
@@ -133,6 +136,35 @@ instrument iopts = do
                 BSL.writeFile (O.iOutputExecutableFile iopts) (DE.renderElf newElf1)
                 return ()
 
+readMappingFile
+  :: FilePath
+  -> IO (Map.Map String Word32)
+readMappingFile p = do
+  dataBytes <- BSL.readFile p
+  case DA.eitherDecode dataBytes of
+    Left err -> X.throwIO (ME.ErrorReadingMappingFile p err)
+    Right m -> return m
+
+decodePersistedOffset
+  :: FilePath
+  -> BSL.ByteString
+  -> Word32
+  -> IO Word64
+decodePersistedOffset p bs off =
+  case DBG.runGetOrFail DBG.getWord64le (BSL.drop (fromIntegral off) bs) of
+    Left (_, _, msg) -> X.throwIO (ME.ErrorReadingPersistenceFile p off msg)
+    Right (_, _, w) -> return w
+
+extract :: O.EOptions -> IO ()
+extract eopts = do
+  let persistFile = O.ePersistenceFile eopts
+  persistedBytes <- BSL.readFile persistFile
+  offsetMap <- readMappingFile (O.eVarMappingFile eopts)
+  valueMap <- T.traverse (decodePersistedOffset persistFile persistedBytes) offsetMap
+  let output = DA.encode valueMap
+  case O.eExtractOutput eopts of
+    Nothing -> BSC.hPutStrLn SI.stdout output
+    Just outPath -> BSL.writeFile outPath output
 
 handleMCTraceErrors :: ME.TraceException -> IO ()
 handleMCTraceErrors te = do
@@ -145,3 +177,4 @@ main = do
   opts <- OA.execParser O.options
   case opts of
     O.Instrument iopts -> instrument iopts `X.catches` [X.Handler handleMCTraceErrors]
+    O.Extract eopts -> extract eopts `X.catches` [X.Handler handleMCTraceErrors]

@@ -6,6 +6,7 @@ module MCTrace.Exceptions (
 import qualified Control.Exception as X
 import qualified Data.Binary.Get as DBG
 import qualified Data.ElfEdit as DE
+import           Data.Word ( Word32 )
 import qualified Prettyprinter as PP
 
 import qualified Language.DTrace as LD
@@ -19,6 +20,8 @@ data TraceException = DTraceParseFailure FilePath X.SomeException
                     | MissingGeneratedProbeSection String
                     | MultipleGeneratedProbeSections String
                     | MissingProbeSymbol String
+                    | ErrorReadingMappingFile FilePath String
+                    | ErrorReadingPersistenceFile FilePath Word32 String
   deriving (Show)
 
 instance X.Exception TraceException
@@ -66,4 +69,16 @@ ppTraceException te =
       PP.hsep [ PP.pretty "Symbol"
               , PP.dquotes (PP.pretty name)
               , PP.pretty "does not exist in the generated machine code for the user-specified probes"
+              ]
+    ErrorReadingMappingFile path msg ->
+      PP.hsep [ PP.pretty "Error reading mapping file"
+              , PP.dquotes (PP.pretty path) <> PP.pretty ":"
+              , PP.pretty msg
+              ]
+    ErrorReadingPersistenceFile path off msg ->
+      PP.hsep [ PP.pretty "Error reading persistence file"
+              , PP.dquotes (PP.pretty path)
+              , PP.pretty "at offset"
+              , PP.pretty off <> PP.pretty ":"
+              , PP.pretty msg
               ]
