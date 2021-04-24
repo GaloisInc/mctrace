@@ -30,19 +30,21 @@ library
                        MCTrace.Panic
   -- other-extensions:
   build-depends:       base >=4.10 && < 5,
-                       binary,
-                       bytestring,
-                       bv-sized,
+                       binary >= 0.8 && < 0.9,
+                       bytestring >= 0.9 && < 0.12,
+                       bv-sized >= 1 && < 1.1,
                        containers,
                        exceptions >= 0.9 && < 0.11,
+                       lens >= 4 && < 6,
+                       llvm-hs-pure >= 9 && < 10,
+                       llvm-hs >= 9 && < 10,
                        lumberjack >= 1 && < 1.1,
                        mtl >= 2 && < 3,
                        panic >= 0.4 && < 0.5,
                        parameterized-utils >= 2 && < 2.2,
                        prettyprinter >= 1.7 && < 1.8,
-                       lens >= 4 && < 6,
-                       llvm-hs-pure >= 9 && < 10,
-                       llvm-hs,
+                       text,
+                       utf8-string,
                        renovate,
                        elf-edit,
                        flexdis86,
@@ -53,9 +55,7 @@ library
                        macaw-x86-symbolic,
                        renovate,
                        renovate-x86,
-                       language-dtrace,
-                       text,
-                       utf8-string
+                       language-dtrace
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat
