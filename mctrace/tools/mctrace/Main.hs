@@ -10,6 +10,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ElfEdit as DE
+import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
 import qualified Data.Map.Strict as Map
 import qualified Data.Parameterized.Context as Ctx
@@ -138,6 +139,11 @@ instrument iopts = do
                 BSL.writeFile exeFile (DE.renderElf newElf1)
                 p0 <- SD.getPermissions exeFile
                 SD.setPermissions exeFile (SD.setOwnerExecutable True p0)
+                putStrLn "Added instrumentation in blocks:"
+                F.forM_ (rwInfo ^. R.riRewritePairs) $ \(R.RewritePair origBlock mNew) -> do
+                  case mNew of
+                    Nothing -> return ()
+                    Just _newBlock -> putStrLn ("  " ++ show (R.concreteBlockAddress origBlock))
                 return ()
 
 readMappingFile

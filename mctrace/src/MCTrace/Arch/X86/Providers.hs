@@ -18,14 +18,15 @@ module MCTrace.Arch.X86.Providers (
   providers
   ) where
 
+import           Control.Applicative ( (<|>) )
 import           Control.Monad ( guard )
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe )
-import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Text as T
+
 import qualified Flexdis86 as F86
 import qualified Prettyprinter as PP
 import qualified Renovate as R
@@ -73,34 +74,75 @@ callProbe
   -- ^ The instruction repr (only one for x86_64)
   -> R.SymbolicAddress RX.X86_64
   -- ^ The symbolic address of the injected probe function
-  -> [R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64)]
+  -> [R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)]
 callProbe locationAnalysis repr@RX.X86Repr probeAddr =
-  [ R.tagInstruction Nothing $ RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg F86.RDI]
-  , R.tagInstruction Nothing $
-      RX.annotateInstrWith addMemAddr $
+  [ RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg F86.RDI]
+  , RX.annotateInstrWith addMemAddr $
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
-  , R.tagInstruction (Just probeAddr) $ RX.noAddr $ RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
-  , R.tagInstruction Nothing $ RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg F86.RDI]
+  , RX.annotateInstrWith addJumpTarget $
+      RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
+  , RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg F86.RDI]
   ]
   where
+    addJumpTarget (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation probeAddr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
     addMemAddr (RX.AnnotatedOperand v _) =
       case v of
-        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (RX.AbsoluteAddress globalStorePtr)
-        _ -> RX.AnnotatedOperand v RX.NoAddress
+        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation globalStorePtr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
     globalStorePtr = MA.injectedStorePointer (MA.injectedAssets locationAnalysis)
 
+-- | If the last instruction is a jump, return its symbolic target
+--
+-- On x86, it happens to be the case that all jump/call instructions just take a
+-- single operand, which will have an associated relocation at this stage.
 withLastInstructionSymTarget
   :: a
-  -> R.SymbolicBlock arch
-  -> (R.SymbolicAddress arch -> a)
+  -> R.SymbolicBlock RX.X86_64
+  -> (R.SymbolicAddress RX.X86_64 -> a)
   -> a
 withLastInstructionSymTarget def symBlock k =
-  R.withSymbolicInstructions symBlock $ \_ insns ->
-    case R.symbolicTarget (DLN.last insns) of
-      Some (R.RelocatableTarget addr) -> k addr
-      Some R.NoTarget -> def
+  R.withSymbolicInstructions symBlock $ \_repr insns -> do
+    case RX.toFlexInstF (DLN.head (DLN.reverse insns)) of
+      Just ii
+        | [RX.AnnotatedOperand (F86.JumpOffset {}, _) (R.SymbolicRelocation symAddr)] <- F86.iiArgs ii ->
+          k symAddr
+      _ -> def
+
+symAddrForSymbol
+  :: MA.ProbeLocationAnalysisResult globals RX.X86_64
+  -> String
+  -> Maybe (R.SymbolicAddress RX.X86_64)
+symAddrForSymbol locationAnalysis symName = do
+  entryAddr <- Map.lookup (BSC.pack symName) (MA.functionEntryPoints locationAnalysis)
+  Map.lookup entryAddr (MA.symbolicAddresses locationAnalysis) <|> Just (R.stableAddress entryAddr)
+
+matcher
+  :: LD.ProbeDescription
+  -> [String]
+  -> MA.ProbeLocationAnalysisResult globals RX.X86_64
+  -> R.SymbolicBlock RX.X86_64
+  -> Maybe (MP.ProbeInserter RX.X86_64)
+matcher providerName symNames locationAnalysis symBlock = do
+  -- symbolic blocks have symbolic jump targets annotated on instructions;
+  -- if the last one points to 'read', we can fire the probe
+  --
+  -- The mapping from symbolic addresses to concrete addresses can be found
+  -- in the configuration (via 'R.getSymbolicBlockMap')
+  let symAddrs = mapMaybe (symAddrForSymbol locationAnalysis) symNames
+  withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
+    guard (any (== lastSymTgt) symAddrs)
+    let assets = MA.injectedAssets locationAnalysis
+    let probeSymAddrs = mapMaybe (matchProvider providerName) (MA.injectedProbeAddrs assets)
+    return $ MP.ProbeInserter $ \irep insns ->
+      let term DLN.:| rest = DLN.reverse insns
+          callSequence = concatMap (callProbe locationAnalysis irep) probeSymAddrs
+          rinsns = term DLN.:| (reverse callSequence <> rest)
+      in DLN.reverse rinsns
 
 -- | A probe that fires at the entry to `read` (the user-level wrapper around
 -- the syscall, provided by libc)
@@ -115,7 +157,7 @@ readEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
 readEntrySyscallProvider =
   MP.ProbeProvider { MP.providerName = name
                    , MP.providerDescription = desc
-                   , MP.providerMatcher = matcher
+                   , MP.providerMatcher = matcher name ["read", "read@plt"]
                    }
   where
     name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
@@ -125,23 +167,36 @@ readEntrySyscallProvider =
                                }
     desc = PP.hsep [ PP.pretty "Probe fires at the entry to `read` system calls"
                    ]
-    matcher locationAnalysis symBlock = do
-      -- symbolic blocks have symbolic jump targets annotated on instructions;
-      -- if the last one points to 'read', we can fire the probe
-      --
-      -- The mapping from symbolic addresses to concrete addresses can be found
-      -- in the configuration (via 'R.getSymbolicBlockMap')
-      readEntryAddr <- Map.lookup (BSC.pack "read") (MA.functionEntryPoints locationAnalysis)
-      readEntrySymAddr <- Map.lookup readEntryAddr (MA.symbolicAddresses locationAnalysis)
-      withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
-        guard (readEntrySymAddr == lastSymTgt)
-        let assets = MA.injectedAssets locationAnalysis
-        let probeSymAddrs = mapMaybe (matchProvider name) (MA.injectedProbeAddrs assets)
-        return $ MP.ProbeInserter $ \irep insns ->
-          let term DLN.:| rest = DLN.reverse insns
-              callSequence = concatMap (callProbe locationAnalysis irep) probeSymAddrs
-              rinsns = term DLN.:| (reverse callSequence <> rest)
-          in DLN.reverse rinsns
+
+writeEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+writeEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcher name ["write", "write@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "write"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `write` system calls"
+                   ]
+
+openEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+openEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcher name ["open", "open@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "open"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `open` system calls"
+                   ]
 
 _readReturnSyscallProvider :: MP.ProbeProvider globals arch
 _readReturnSyscallProvider =
@@ -159,4 +214,6 @@ _readReturnSyscallProvider =
 
 providers :: [MP.ProbeProvider globals RX.X86_64]
 providers = [ readEntrySyscallProvider
+            , writeEntrySyscallProvider
+            , openEntrySyscallProvider
             ]

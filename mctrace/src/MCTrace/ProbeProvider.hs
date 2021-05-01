@@ -15,8 +15,8 @@ import qualified MCTrace.Analysis as MA
 newtype ProbeInserter arch =
   ProbeInserter { insertProbe :: forall tp
                                . R.InstructionArchRepr arch tp
-                              -> DLN.NonEmpty (R.TaggedInstruction arch tp (R.InstructionAnnotation arch))
-                              -> DLN.NonEmpty (R.TaggedInstruction arch tp (R.InstructionAnnotation arch))
+                              -> DLN.NonEmpty (R.Instruction arch tp (R.Relocation arch))
+                              -> DLN.NonEmpty (R.Instruction arch tp (R.Relocation arch))
                 }
 
 instance Semigroup (ProbeInserter arch) where

@@ -24,15 +24,15 @@ syscallMmap = F86.DWordSignedImm 9
 syscallFtruncate :: F86.Value
 syscallFtruncate = F86.DWordSignedImm 77
 
-i :: RX.Instruction tp () -> R.TaggedInstruction RX.X86_64 tp RX.TargetAddress
-i = R.tagInstruction Nothing . RX.noAddr
+i :: RX.Instruction tp () -> R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)
+i = RX.noAddr
 
 applyRegisters
   :: Functor f
   => RX.X86Repr tp
   -> String
   -> f F86.Value
-  -> f (R.TaggedInstruction RX.X86_64 tp RX.TargetAddress)
+  -> f (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 applyRegisters repr mnemonic regs =
   fmap (\r -> i (RX.makeInstr repr mnemonic [r])) regs
 
@@ -59,7 +59,7 @@ usedRegisters =   F86.QWordReg F86.RAX DLN.:|
 open
   :: R.InstructionArchRepr RX.X86_64 tp
   -> FilePath
-  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
+  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 open repr path =
     i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
                                , syscallOpen
@@ -89,7 +89,7 @@ open repr path =
 ftruncate
   :: R.InstructionArchRepr RX.X86_64 tp
   -> Word32
-  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
+  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 ftruncate repr globalStoreBytes =
     i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
                                , syscallFtruncate
@@ -109,7 +109,7 @@ ftruncate repr globalStoreBytes =
 mmap
   :: R.InstructionArchRepr RX.X86_64 tp
   -> Word32
-  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
+  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 mmap repr globalStoreBytes =
     i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX, syscallMmap ]) DLN.:|
    -- Pass NULL as the requested address
@@ -150,7 +150,7 @@ linuxInitializationCode
   -- ^ The repr indicating which instruction set to use
   -> R.ConcreteAddress RX.X86_64
   -- ^ The original entry point to the program
-  -> DLN.NonEmpty (R.TaggedInstruction RX.X86_64 tp (R.InstructionAnnotation RX.X86_64))
+  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 linuxInitializationCode path globalStoreBytes globalAddr repr origEntry =
   neconcat (-- Save the registers we are going to clobber to the stack
             applyRegisters repr "push" usedRegisters DLN.:|
@@ -166,8 +166,7 @@ linuxInitializationCode path globalStoreBytes globalAddr repr origEntry =
          -- Save the address returned by mmap (in %rax) into the global variable
          --
          -- We need to turn this into a symbolic reference to be fixed up later
-         , (R.tagInstruction Nothing $
-               RX.annotateInstrWith addMemAddr $
+         , (RX.annotateInstrWith addMemAddr $
                RX.makeInstr repr "mov"
                [ F86.Mem64 (F86.IP_Offset_32 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                , F86.QWordReg F86.RAX
@@ -175,20 +174,19 @@ linuxInitializationCode path globalStoreBytes globalAddr repr origEntry =
            ) DLN.:| []
            -- Restore saved values
          , applyRegisters repr "pop" (DLN.reverse usedRegisters)
-         , (R.tagInstruction Nothing $
-            RX.annotateInstrWith addEntryAddr $
+         , (RX.annotateInstrWith addEntryAddr $
             RX.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]) DLN.:| []
          ])
   where
     addEntryAddr (RX.AnnotatedOperand v _) =
       case v of
-        (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (RX.AbsoluteAddress origEntry)
-        _ -> RX.AnnotatedOperand v RX.NoAddress
+        (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation origEntry)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
 
     addMemAddr (RX.AnnotatedOperand v _) =
       case v of
-        (F86.Mem64 {}, _) -> RX.AnnotatedOperand v (RX.AbsoluteAddress globalAddr)
-        _ -> RX.AnnotatedOperand v RX.NoAddress
+        (F86.Mem64 {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation globalAddr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
 
 {- Note [System Calls]
 
