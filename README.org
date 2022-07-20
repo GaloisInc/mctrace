@@ -80,3 +80,9 @@ Some of the things that MCTrace will eventually support include (in no particula
 - Support for more methods of telemetry collection
 - Integrate binary verification (e.g., https://github.com/GaloisInc/pate) to build assurance that the instrumentation does not interfere with the program
 - Additional code generation paths through C (for portability)
+
+* Acknowledgements
+
+This material is based upon work supported by the United States Air Force AFRL/SBRK under Contract No. FA8649-21-P-0293.
+
+(c) 2022 Galois, Inc.
