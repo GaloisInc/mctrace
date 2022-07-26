@@ -85,7 +85,7 @@ jobs:
         sudo apt install -y curl zlibc zlib1g zlib1g-dev git zip \
           libgmp3-dev build-essential libtinfo-dev autoconf automake gperf cmake locales \
           python3-distutils python-setuptools antlr3 libantlr3c-dev libtool libtool-bin libboost-all-dev python3-pip libfftw3-dev \
-          language-pack-en-base language-pack-en
+          language-pack-en-base language-pack-en llvm-9-dev llvm-9-runtime
         sudo locale-gen en_US.UTF-8
         sudo update-locale LANG=$LANG LANGUAGE=$LANGUAGE
 
