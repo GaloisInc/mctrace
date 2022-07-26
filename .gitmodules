@@ -34,3 +34,9 @@
 [submodule "submodules/what4-serialize"]
 	path = submodules/what4-serialize
 	url = git@github.com:GaloisInc/what4-serialize.git
+[submodule "submodules/llvm-pretty"]
+	path = submodules/llvm-pretty
+	url = git@github.com:elliottt/llvm-pretty.git
+[submodule "submodules/llvm-pretty-bc-parser"]
+	path = submodules/llvm-pretty-bc-parser
+	url = git@github.com:GaloisInc/llvm-pretty-bc-parser.git
