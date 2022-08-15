@@ -2,7 +2,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 module MCTrace.Arch.X86 (
   x86Rewriter
   ) where
@@ -11,21 +13,18 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ElfEdit as EE
 import qualified Data.ElfEdit.Prim as EEP
-import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Macaw.BinaryLoader as MBL
 import           Data.Macaw.BinaryLoader.X86 ()
+import qualified Data.Macaw.CFG as MC
 import qualified Data.Macaw.Discovery.State as DMD
-import qualified Data.Macaw.Memory as DMM
-import qualified Data.Macaw.Memory.LoadCommon as DMML
 import           Data.Macaw.X86.Symbolic ()
 import qualified Data.Map.Strict as Map
-import           Data.Maybe ( fromMaybe, listToMaybe, mapMaybe )
+import           Data.Maybe ( fromMaybe, mapMaybe )
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Traversable as DT
-import           Data.Word ( Word32 )
 import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
 
@@ -34,7 +33,7 @@ import qualified MCTrace.Arch.X86.Providers as MAP
 import qualified MCTrace.Arch.X86.Setup as MAS
 import qualified MCTrace.Codegen as MC
 import qualified MCTrace.ProbeProvider as MP
-
+import qualified MCTrace.PLT as PLT
 
 -- | Run a pre-analysis pass in the rewriter monad ('R.RewriteM')
 --
@@ -66,131 +65,24 @@ preAnalyze probeIndex env = do
                            , MA.injectedEntryAddr = setupSymAddr
                            }
 
+type instance PLT.ArchRelocationType RX.X86_64 = EEP.X86_64_RelocationType
+
 indexFunctionEntries
-  :: (R.ArchConstraints arch, R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, binFmt ~ EE.ElfHeaderInfo 64)
+  :: (R.ArchConstraints arch
+     , R.HasAnalysisEnv env
+     , R.HasSymbolicBlockMap env
+     , binFmt ~ EE.ElfHeaderInfo (MC.ArchAddrWidth arch)
+     , arch ~ RX.X86_64
+     )
   => env arch binFmt
   -> Map.Map BS.ByteString (R.ConcreteAddress arch)
 indexFunctionEntries env =
-  pltStubSymbols env <> Map.fromList normalSymbols
+  PLT.pltStubSymbols env <> Map.fromList normalSymbols
   where
     blockInfo = R.analysisBlockInfo env
     normalSymbols = [ (fromMaybe (BSC.pack (show entryAddr)) (DMD.discoveredFunSymbol dfi), entryAddr)
                     | (entryAddr, (_blockAddrs, Some dfi)) <- Map.toList (R.biFunctions blockInfo)
                     ]
-
-pltStubAddresses dynSec vam vdefm vreqm getRelSymIdx accum rel
-  | Right (symtabEntry, _versionedVal) <- EEP.dynSymEntry dynSec vam vdefm vreqm (getRelSymIdx rel) =
-      symtabEntry : accum
-  | otherwise = accum
-
-buildAssocList nameRelaMap baseAddr stubSize loadOptions =
-  [ (DMM.memWord (fromIntegral addr), sym)
-  | (idx, sym) <- nameRelaMap
-  , let addr = loadOffset + baseAddr + idx * stubSize
-  ]
-  where
-    loadOffset = toInteger (fromMaybe 0 (DMML.loadOffset loadOptions))
-
-data SomeRel tp where
-  SomeRel :: [r tp] -> (r tp -> Word32) -> SomeRel tp
-
-extractPltAddrs dynSec vam vdefm vreqm loadOptions elf = do
-  SomeRel rels getRelSymIdx <- case EEP.dynPLTRel dynSec vam of
-    Right (EEP.PLTRela relas) -> return (SomeRel relas EEP.relaSym)
-    Right (EEP.PLTRel rels) -> return (SomeRel rels EEP.relSym)
-    _ -> Nothing
-  let revNameRelaMap = F.foldl' (pltStubAddresses dynSec vam vdefm vreqm getRelSymIdx) [] rels
-  let nameRelaMap = zip [0..] (reverse revNameRelaMap)
-  pltSec <- listToMaybe (EE.findSectionByName (BSC.pack ".plt") elf)
-  let pltBase = EE.elfSectionAddr pltSec
-  let (pltSize, pltStubSize) = case EE.elfMachine elf of
-        EE.EM_X86_64 -> (16, 16)
-        EE.EM_ARM -> (20, 12)
-        em -> error ("Unexpected architecture: " ++ show em)
-  return (buildAssocList nameRelaMap (pltSize + toInteger pltBase) pltStubSize loadOptions)
-
-extractPltGotAddrs dynSec vam vdefm vreqm loadOptions elf = do
-  relsGot <- case EEP.dynRelaEntries dynSec vam of
-    Right relas -> return relas
-    Left _ -> Nothing
-  let revNameRelaGotMap = F.foldl' (pltStubAddresses dynSec vam vdefm vreqm EEP.relaSym) [] relsGot
-  let nameRelaMapGot = zip [0..] (reverse revNameRelaGotMap)
-
-  pltGotSec <- listToMaybe (EE.findSectionByName (BSC.pack ".plt.got") elf)
-  let pltGotBase = EE.elfSectionAddr pltGotSec
-
-  let pltGotStubSize = case EE.elfMachine elf of
-        EE.EM_X86_64 -> 8
-        em -> error ("Unexpected architecture: " ++ show em)
-  return (buildAssocList nameRelaMapGot (toInteger pltGotBase) pltGotStubSize loadOptions)
-
--- | Match up names PLT stub entries
---
--- Calls to functions in shared libraries are issued through PLT stubs. These
--- are short sequences included in the binary by the compiler that jump to the
--- *real* function implementation in the shared library via the Global Offset
--- Table.  The GOT is populated by the dynamic loader.
---
--- The name for the PLT stub for the @read@ function will be named @read\@plt@.
---
--- See Note [PLT Stub Names] for details
-pltStubSymbols
-  :: (R.ArchConstraints arch, R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, binFmt ~ EE.ElfHeaderInfo 64)
-  => env arch binFmt
-  -> Map.Map BS.ByteString (R.ConcreteAddress arch)
-pltStubSymbols env = Map.fromList $ fromMaybe [] $ do
-  vam <- EEP.virtAddrMap elfBytes phdrs
-
-  -- Parse out the contents of the @.dynamic@ section; there is not a single
-  -- convenient combinator to extract these entries, so we have to unpack a few
-  -- different tables using some elf-edit helpers
-  rawDynSec <- listToMaybe (EE.findSectionByName (BSC.pack ".dynamic") elf)
-  let dynBytes = EE.elfSectionData rawDynSec
-  dynSec <- case EEP.dynamicEntries (EE.elfData elf) (EE.elfClass elf) dynBytes of
-    Left _dynErr -> Nothing
-    Right dynSec -> return dynSec
-  vdefm <- case EEP.dynVersionDefMap dynSec vam of
-    Left _dynErr -> Nothing
-    Right vm -> return vm
-  vreqm <- case EEP.dynVersionReqMap dynSec vam of
-    Left _dynErr -> Nothing
-    Right vm -> return vm
-
-  -- PLT symbol names can exist in two different places depending on how they
-  -- are referenced; check both and accumulate all of them here.
-  let pltAddrs = fromMaybe [] $ extractPltAddrs dynSec vam vdefm vreqm loadOptions elf
-  let pltGotAddrs = fromMaybe [] $ extractPltGotAddrs dynSec vam vdefm vreqm loadOptions elf
-
-  return (pltAddrs ++ pltGotAddrs)
-
-  -- eres <- EEP.getDynamicSectionFromSegments elfHeader phdrs elfBytes vam
-  -- dynSec <- case eres of
-  --   Left _dynErr -> Nothing
-  --   Right dynSec -> return dynSec
-  -- relas <- case EEP.dynPLTRel @EEP.X86_64_RelocationType dynSec of
-  --   Right (EEP.PLTRela relas) -> return relas
-  --   _ -> Nothing
-  -- let (_, revNameRelaMap) = F.foldl' (pltStubAddress dynSec) (1, []) relas
-  -- let nameRelaMap = zip [0..] (reverse revNameRelaMap)
-  -- pltGotSec <- listToMaybe (EE.findSectionByName (BSC.pack ".plt.got") elf)
-  -- let pltGotBase = EE.elfSectionAddr pltGotSec
-  -- return [ (symName <> BSC.pack "@plt", R.concreteFromAbsolute (fromIntegral ((idx + 1) * 16 + pltGotBase)))
-  --        | (idx, (symName, _)) <- nameRelaMap
-  --        ]
-  where
-    bin = R.analysisLoadedBinary env
-    elfHeaderInfo = MBL.originalBinary bin
-    loadOptions = MBL.loadOptions bin
-    elfHeader = EE.header elfHeaderInfo
-    phdrs = EE.headerPhdrs elfHeaderInfo
-    elfBytes = EE.headerFileContents elfHeaderInfo
-    (_, elf) = EE.getElf elfHeaderInfo
-
-    -- pltStubAddress dynSec (idx, accum) rela
-    --   | Right (symtabEntry, _versionedVal) <- EEP.dynSymEntry dynSec idx
-    --   , EE.steType symtabEntry == EE.STT_FUNC =
-    --     (idx + 1, (EE.steName symtabEntry, EE.relaAddr rela) : accum)
-    --   | otherwise = pltStubAddress dynSec (idx+1, accum) rela
 
 -- | Analyze the binary in the context of the pre-analysis state
 analyze

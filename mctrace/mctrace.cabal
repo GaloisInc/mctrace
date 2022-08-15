@@ -27,6 +27,7 @@ library
                        MCTrace.Exceptions
                        MCTrace.Loader
                        MCTrace.ProbeProvider
+                       MCTrace.PLT
                        MCTrace.Panic
   -- other-extensions:
   build-depends:       base >=4.10 && < 5,
