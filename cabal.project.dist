@@ -5,10 +5,13 @@ packages: language-dtrace
           submodules/elf-edit
           submodules/dwarf
           submodules/parameterized-utils
+          submodules/llvm-pretty
+          submodules/llvm-pretty-bc-parser
           submodules/what4/what4
           submodules/what4-serialize
           submodules/crucible/crucible
           submodules/crucible/crucible-llvm
+          submodules/crucible/crucible-symio
           submodules/dismantle/dismantle-tablegen
           submodules/dismantle/dismantle-ppc          
           submodules/macaw/base

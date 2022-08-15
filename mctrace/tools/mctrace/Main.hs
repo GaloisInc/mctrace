@@ -3,7 +3,6 @@
 module Main ( main ) where
 
 import qualified Control.Exception as X
-import           Control.Lens ( (^.) )
 import qualified Data.Aeson as DA
 import qualified Data.Binary.Get as DBG
 import qualified Data.ByteString as BS
@@ -90,9 +89,9 @@ globalsSize :: Ctx.Assignment LDT.GlobalVariable globals
             -> Int
 globalsSize _varDefs varOffsets = 8 * Ctx.sizeInt (Ctx.size varOffsets)
 
-renovateLogger :: LJ.LogAction IO R.Diagnostic
+renovateLogger :: (PP.Pretty l) => LJ.LogAction IO (R.Diagnostic l)
 renovateLogger = LJ.LogAction $ \diag -> do
-  SI.hPutStrLn SI.stderr (show diag)
+  SI.hPutStrLn SI.stderr (show (PP.pretty diag))
 
 instrument :: O.IOptions -> IO ()
 instrument iopts = do
@@ -129,9 +128,10 @@ instrument iopts = do
           let configs = archConfigurations probeIndex
           R.withElfConfig someHeader configs $ \renovateConfig headerInfo loadedBinary -> do
             let strat = R.LayoutStrategy R.Parallel R.BlockGrouping R.AlwaysTrampoline
-            (newElf0, ares, rwInfo, _) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
+            (newElf0, ares, rwInfo) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
             let symbolicEntryAddr = MA.injectedEntryAddr (MA.injectedAssets ares)
-            case Map.lookup symbolicEntryAddr (rwInfo ^. R.riSymbolicToConcreteMap) of
+            let redirRes = R.riRedirectionResult rwInfo
+            case Map.lookup symbolicEntryAddr (R.rrSymbolicToConcreteMap redirRes) of
               Nothing -> MP.panic MP.ELFRewriter "instrument" ["No new entry point address allocated"]
               Just concEntryAddr -> do
                 let newElf1 = newElf0 { DE.elfEntry = fromIntegral (R.absoluteAddress concEntryAddr) }
@@ -140,7 +140,7 @@ instrument iopts = do
                 p0 <- SD.getPermissions exeFile
                 SD.setPermissions exeFile (SD.setOwnerExecutable True p0)
                 putStrLn "Added instrumentation in blocks:"
-                F.forM_ (rwInfo ^. R.riRewritePairs) $ \(R.RewritePair origBlock mNew) -> do
+                F.forM_ (R.riRewritePairs rwInfo) $ \(R.RewritePair origBlock mNew) -> do
                   case mNew of
                     Nothing -> return ()
                     Just _newBlock -> putStrLn ("  " ++ show (R.concreteBlockAddress origBlock))

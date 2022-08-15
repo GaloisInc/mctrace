@@ -2,7 +2,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 module MCTrace.Arch.X86 (
   x86Rewriter
   ) where
@@ -11,15 +13,15 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ElfEdit as EE
 import qualified Data.ElfEdit.Prim as EEP
-import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Macaw.BinaryLoader as MBL
 import           Data.Macaw.BinaryLoader.X86 ()
+import qualified Data.Macaw.CFG as MC
 import qualified Data.Macaw.Discovery.State as DMD
 import           Data.Macaw.X86.Symbolic ()
 import qualified Data.Map.Strict as Map
-import           Data.Maybe ( fromMaybe, listToMaybe, mapMaybe )
+import           Data.Maybe ( fromMaybe, mapMaybe )
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Traversable as DT
@@ -31,7 +33,7 @@ import qualified MCTrace.Arch.X86.Providers as MAP
 import qualified MCTrace.Arch.X86.Setup as MAS
 import qualified MCTrace.Codegen as MC
 import qualified MCTrace.ProbeProvider as MP
-
+import qualified MCTrace.PLT as PLT
 
 -- | Run a pre-analysis pass in the rewriter monad ('R.RewriteM')
 --
@@ -63,61 +65,24 @@ preAnalyze probeIndex env = do
                            , MA.injectedEntryAddr = setupSymAddr
                            }
 
+type instance PLT.ArchRelocationType RX.X86_64 = EEP.X86_64_RelocationType
+
 indexFunctionEntries
-  :: (R.ArchConstraints arch, R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, binFmt ~ EE.ElfHeaderInfo 64)
+  :: (R.ArchConstraints arch
+     , R.HasAnalysisEnv env
+     , R.HasSymbolicBlockMap env
+     , binFmt ~ EE.ElfHeaderInfo (MC.ArchAddrWidth arch)
+     , arch ~ RX.X86_64
+     )
   => env arch binFmt
   -> Map.Map BS.ByteString (R.ConcreteAddress arch)
 indexFunctionEntries env =
-  pltStubSymbols env <> Map.fromList normalSymbols
+  PLT.pltStubSymbols env <> Map.fromList normalSymbols
   where
     blockInfo = R.analysisBlockInfo env
     normalSymbols = [ (fromMaybe (BSC.pack (show entryAddr)) (DMD.discoveredFunSymbol dfi), entryAddr)
                     | (entryAddr, (_blockAddrs, Some dfi)) <- Map.toList (R.biFunctions blockInfo)
                     ]
-
--- | Match up names PLT stub entries
---
--- Calls to functions in shared libraries are issued through PLT stubs. These
--- are short sequences included in the binary by the compiler that jump to the
--- *real* function implementation in the shared library via the Global Offset
--- Table.  The GOT is populated by the dynamic loader.
---
--- The name for the PLT stub for the @read@ function will be named @read\@plt@.
---
--- See Note [PLT Stub Names] for details
-pltStubSymbols
-  :: (R.ArchConstraints arch, R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, binFmt ~ EE.ElfHeaderInfo 64)
-  => env arch binFmt
-  -> Map.Map BS.ByteString (R.ConcreteAddress arch)
-pltStubSymbols env = Map.fromList $ fromMaybe [] $ do
-  vam <- EEP.virtAddrMap elfBytes phdrs
-  eres <- EEP.getDynamicSectionFromSegments elfHeader phdrs elfBytes vam
-  dynSec <- case eres of
-    Left _dynErr -> Nothing
-    Right dynSec -> return dynSec
-  relas <- case EEP.dynPLTRel @EEP.X86_64_RelocationType dynSec of
-    Right (EEP.PLTRela relas) -> return relas
-    _ -> Nothing
-  let (_, revNameRelaMap) = F.foldl' (pltStubAddress dynSec) (1, []) relas
-  let nameRelaMap = zip [0..] (reverse revNameRelaMap)
-  let (_, elf) = EE.getElf elfHeaderInfo
-  pltGotSec <- listToMaybe (EE.findSectionByName (BSC.pack ".plt.got") elf)
-  let pltGotBase = EE.elfSectionAddr pltGotSec
-  return [ (symName <> BSC.pack "@plt", R.concreteFromAbsolute (fromIntegral ((idx + 1) * 16 + pltGotBase)))
-         | (idx, (symName, _)) <- nameRelaMap
-         ]
-  where
-    bin = R.analysisLoadedBinary env
-    elfHeaderInfo = MBL.originalBinary bin
-    elfHeader = EE.header elfHeaderInfo
-    phdrs = EE.headerPhdrs elfHeaderInfo
-    elfBytes = EE.headerFileContents elfHeaderInfo
-
-    pltStubAddress dynSec (idx, accum) rela
-      | Right (symtabEntry, _versionedVal) <- EEP.dynSymEntry dynSec idx
-      , EE.steType symtabEntry == EE.STT_FUNC =
-        (idx + 1, (EE.steName symtabEntry, EE.relaAddr rela) : accum)
-      | otherwise = pltStubAddress dynSec (idx+1, accum) rela
 
 -- | Analyze the binary in the context of the pre-analysis state
 analyze
