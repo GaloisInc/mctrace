@@ -40,3 +40,6 @@
 [submodule "submodules/llvm-pretty-bc-parser"]
 	path = submodules/llvm-pretty-bc-parser
 	url = git@github.com:GaloisInc/llvm-pretty-bc-parser.git
+[submodule "submodules/llvm-hs"]
+	path = submodules/llvm-hs
+	url = git@github.com:llvm-hs/llvm-hs.git
