@@ -56,7 +56,11 @@ MCTrace compiles DTrace probe scripts into native code using a compiler backend 
 
 The storage backend for telemetry data will ultimately be configurable to support a wide range of systems.  At the moment, telemetry is stored in a memory mapped region backed by a file on disk.  The region is allocated at program startup.  Each probe modifies values in that region.  When the program exits, the telemetry information persists in the file.  Users can then collect this telemetry information for offline analysis.  When instrumenting a binary with a set of probes, ~mctrace~ can emit a mapping file that describes the location of each probe variable in the collected telemetry.
 
-* Build Instructions
+* Building MCTrace
+
+MCTrace binaries can be built in two ways: either locally, given a Haskell build environment and an LLVM installation, or via a Dockerfile. Instructions for both are in the following sections.
+
+** Local Build Instructions
 
 Assuming you have a Haskell compiler installed (GHC >= 8.6 and < 9), the following instructions will build the MCTrace tool:
 
@@ -69,7 +73,55 @@ cabal build pkg:mctrace
 
 #+END_SRC
 
-Note that ~mctrace~ currently requires LLVM 9 to be installed and accessible for code generation.
+Note that ~mctrace~ currently requires LLVM 12 to be installed and accessible for code generation.
+
+** Docker-based Build Instructions and Usage
+
+To build the docker image, execute the following from the root of the repository:
+#+BEGIN_SRC bash
+docker build -t mctrace - < Dockerfile
+#+END_SRC
+
+This will build a self-contained image that contains MCTrace, its dependencies and associated tools. To run the container, execute something like:
+
+#+BEGIN_SRC bash
+docker run -it -v $PWD:/mctrace -w /mctrace mctrace
+#+END_SRC
+
+Note that this mounts the current directory as ~/mctrace~ in the container and leaves you in a bash shell in that directory.
+The ~mctrace~ binary as well as ~musl-gcc~ (used to build ~musl~-based statically-linked binaries) should be accessible from this shell.
+
+** Testing the Tools
+
+To test the tools, first build a test binary:
+#+BEGIN_SRC bash
+cd mctrace/tests/full/ && make
+#+END_SRC
+
+An example probe is available in =mctrace/test/eval=. To instrument this binary with the probe, from the same directory, execute:
+#+BEGIN_SRC bash
+mctrace instrument \
+    --binary=read-syscall --output=/tmp/read-syscall.instrumented \
+    --var-mapping=/tmp/read-syscall.mapping.json --persistence-file=/tmp/telemetry.bin \
+    --script=../eval/single-add-probe.d
+#+END_SRC
+
+This produces the instrumented binary =/tmp/read-syscall.instrumented= as well as a mapping file =/tmp/read-syscall.mapping.json=, which we require
+later to extract telemetry information. Then run the instrumented binary:
+#+BEGIN_SRC bash
+/tmp/read-syscall.instrumented
+#+END_SRC
+
+This creates the file =/tmp/telemetry.bin= that contains the telemetry information in binary format. To interpret these results, execute:
+#+BEGIN_SRC bash
+mctrace extract \
+    --var-mapping=/tmp/read-syscall.mapping.json \
+    --persistence-file=/tmp/telemetry.bin
+#+END_SRC
+
+This should display the set of variables defined in the probes and their values.
+
+Other binaries can be instrumented, run and interpreted in a similar fashion.
 
 * Roadmap
 
