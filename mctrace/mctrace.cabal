@@ -22,6 +22,7 @@ library
                        MCTrace.Arch.X86
                        MCTrace.Arch.X86.Providers
                        MCTrace.Arch.X86.Setup
+                       MCTrace.Arch.AArch32
                        MCTrace.Codegen
                        MCTrace.Codegen.LLVM
                        MCTrace.Exceptions
@@ -56,6 +57,7 @@ library
                        macaw-x86-symbolic,
                        renovate,
                        renovate-x86,
+                       renovate-aarch32,
                        language-dtrace
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -86,6 +88,7 @@ executable mctrace
                        prettyprinter,
                        renovate,
                        renovate-x86,
+                       renovate-aarch32,
                        language-dtrace,
                        mctrace
   hs-source-dirs:      tools/mctrace

@@ -244,6 +244,13 @@ withLLVMOptions (DE.SomeElf ehi) k =
       let features = Map.empty
       LLT.withTargetOptions $ \targetOpts -> do
         LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
+    DE.EM_ARM -> do
+      let triple = fromString "arm-none-eabi"
+      (t, _) <- LLT.lookupTarget Nothing triple
+      let cpu = fromString ""
+      let features = Map.empty
+      LLT.withTargetOptions $ \targetOpts -> do
+        LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
     m -> X.throwIO (ME.UnsupportedArchitecture m)
 
 

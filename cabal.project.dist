@@ -16,6 +16,9 @@ packages: language-dtrace
           submodules/crucible/crucible-symio
           submodules/dismantle/dismantle-tablegen
           submodules/dismantle/dismantle-ppc          
+          submodules/dismantle/dismantle-arm-xml
+          submodules/asl-translator
+          submodules/arm-asl-parser
           submodules/macaw/base
           submodules/macaw/symbolic
           submodules/macaw/x86
@@ -23,13 +26,18 @@ packages: language-dtrace
           submodules/macaw/macaw-semmc
           submodules/macaw/macaw-ppc
           submodules/macaw/macaw-ppc-symbolic
+          submodules/macaw/macaw-aarch32
+          submodules/macaw/macaw-aarch32-symbolic
           submodules/macaw/refinement
           submodules/macaw-loader/macaw-loader
           submodules/macaw-loader/macaw-loader-x86
           submodules/macaw-loader/macaw-loader-ppc
+          submodules/macaw-loader/macaw-loader-aarch32
           submodules/renovate/renovate
           submodules/renovate/renovate-x86
+          submodules/renovate/renovate-aarch32
           submodules/semmc/semmc
           submodules/semmc/semmc-synthesis
           submodules/semmc/semmc-learning
           submodules/semmc/semmc-ppc
+          submodules/semmc/semmc-aarch32
