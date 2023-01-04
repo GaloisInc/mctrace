@@ -7,22 +7,15 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as DBU
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
+import qualified Data.Map.Strict as Map
 import           Data.Word ( Word32 )
 
 import qualified Flexdis86 as F86
 import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
 
--- syscallWrite :: F86.Value
--- syscallWrite = F86.DWordSignedImm 1
-syscallOpen :: F86.Value
-syscallOpen = F86.DWordSignedImm 2
-syscallMmap :: F86.Value
-syscallMmap = F86.DWordSignedImm 9
--- syscallExit :: F86.Value
--- syscallExit = F86.DWordSignedImm 60
-syscallFtruncate :: F86.Value
-syscallFtruncate = F86.DWordSignedImm 77
+import qualified MCTrace.Runtime as RT
+
 
 i :: RX.Instruction tp () -> R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)
 i = RX.noAddr
@@ -46,34 +39,24 @@ usedRegisters =   F86.QWordReg F86.RAX DLN.:|
                 , F86.QWordReg F86.R9
                 ]
 
--- | Issue an open syscall: open(path, O_CREAT | O_RDWR | O_TRUNC, 0400 | 0200)
---
--- open is syscall 2
---
--- The flags are: 0100 | 02 | 01000 = 578
---
--- The mode is 0400 | 0200 = 384
---
--- This code sequence stores the bytes of the path inline. It uses an
--- unconditional jump to avoid executing it.
-open
+-- | Generate instructions to allocate memory using a support function.
+-- A pointer to the allocated memory will be returned in RAX (assuming
+-- the support function does the right thing).
+allocMemory
   :: R.InstructionArchRepr RX.X86_64 tp
+  -> R.SymbolicAddress RX.X86_64
+  -> Word32
   -> FilePath
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-open repr path =
-    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
-                               , syscallOpen
-                               ]) DLN.:|
-  [ i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
-                                , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0x15)))
+allocMemory repr allocFnSymAddress globalStoreBytes path =
+    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI
+                               , F86.DWordSignedImm (fromIntegral globalStoreBytes) 
+                               ] ) DLN.:|
+  [ i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
+                                , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0xa)))
                                 ]
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI
-                                , F86.DWordSignedImm 578
-                                ]
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RDX
-                                , F86.DWordSignedImm 384
-                                ]
-  , i $ RX.makeInstr repr "syscall" []
+  , RX.annotateInstrWith addAllocFunAddress $
+      RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
   , i $ RX.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset (fromIntegral jmpOff))]
   , i $ RX.rawBytes repr (DBU.fromString path <> BS.pack [0])
   ]
@@ -81,49 +64,12 @@ open repr path =
     -- This is the offset to the jump over the file path
     --
     -- We add 1 for the NUL terminator
-    jmpOff = length path + 1
+    jmpOff = length path + 1 
+    addAllocFunAddress (RX.AnnotatedOperand v _) = 
+      case v of
+        (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation allocFnSymAddress)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
 
--- | Truncate the file up to the necessary size: ftruncate(fd, size)
---
--- Note that the FD is already in %rdi, so we just need to populate the size
-ftruncate
-  :: R.InstructionArchRepr RX.X86_64 tp
-  -> Word32
-  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-ftruncate repr globalStoreBytes =
-    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX
-                               , syscallFtruncate
-                               ]) DLN.:|
-  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI
-                                , F86.DWordSignedImm (fromIntegral globalStoreBytes)
-                                ]
-  , i $ RX.makeInstr repr "syscall" []
-  ]
-
--- | Map the file descriptor (in %r8)
---
--- * We do not request a specific address
--- * The protection flags are PROT_READ | PROT_WRITE = 0x1 | 0x2 = 0x3
--- * The flags are MAP_SHARED = 0x1
--- * We do not use an offset into the file
-mmap
-  :: R.InstructionArchRepr RX.X86_64 tp
-  -> Word32
-  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-mmap repr globalStoreBytes =
-    i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RAX, syscallMmap ]) DLN.:|
-   -- Pass NULL as the requested address
-  [ i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI, F86.DWordSignedImm 0 ]
-   -- The number of bytes in the mapping
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RSI, F86.DWordSignedImm (fromIntegral globalStoreBytes) ]
-   -- Protection flags
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.RDX, F86.DWordSignedImm  3 ]
-   -- The flags
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.R10, F86.DWordSignedImm 1 ]
-   -- The offset into the file (0)
-  , i $ RX.makeInstr repr "mov" [ F86.QWordReg F86.R9, F86.DWordSignedImm 0 ]
-  , i $ RX.makeInstr repr "syscall" []
-  ]
 
 neconcat :: DLN.NonEmpty (DLN.NonEmpty a) -> DLN.NonEmpty a
 neconcat nel =
@@ -133,10 +79,8 @@ neconcat nel =
 
 -- | The code sequence to initialize the probe execution environment (including global storage)
 --
--- This will embed the file path as raw data and then use the @open@ and @mmap@
--- system calls to set up a memory region backed by a file.
---
--- See Note [System Calls] for details on calling conventions
+-- This will embed the file path as raw data and then call a runtime support
+-- function to allocate the actual memory.
 linuxInitializationCode
   :: FilePath
   -- ^ The path of a file to serve as the backing store for the probe global storage
@@ -146,23 +90,21 @@ linuxInitializationCode
   -- ^ The number of bytes required for the global storage of probes
   -> R.ConcreteAddress RX.X86_64
   -- ^ The address of the global variable that will hold the pointer to the storage area
+  -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64)
+  -- ^ The symbolic addresses assigned to each support function we injected
   -> R.InstructionArchRepr RX.X86_64 tp
   -- ^ The repr indicating which instruction set to use
   -> R.ConcreteAddress RX.X86_64
   -- ^ The original entry point to the program
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-linuxInitializationCode path globalStoreBytes globalAddr repr origEntry =
+linuxInitializationCode path globalStoreBytes globalAddr supportFunctions repr origEntry =
   neconcat (-- Save the registers we are going to clobber to the stack
             applyRegisters repr "push" usedRegisters DLN.:|
             [
-         -- FIXME: Exit if %rax < 0
-              open repr path
-         -- Save the FD into %rdi (as an argument to the next syscall)
-         , i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI, F86.QWordReg F86.RAX ]) DLN.:| []
-         , ftruncate repr globalStoreBytes
-         -- Move the FD to %r8 (as the fifth argument of mmap)
-         , i (RX.makeInstr repr "mov" [ F86.QWordReg F86.R8, F86.QWordReg F86.RDI ]) DLN.:| []
-         , mmap repr globalStoreBytes
+         -- Allocate memory using the external function
+         -- FIXME: Exit if the call failed. e.g. %rax < 0
+         allocMemory repr allocMemFnAddress globalStoreBytes path
+         
          -- Save the address returned by mmap (in %rax) into the global variable
          --
          -- We need to turn this into a symbolic reference to be fixed up later
@@ -187,6 +129,7 @@ linuxInitializationCode path globalStoreBytes globalAddr repr origEntry =
       case v of
         (F86.Mem64 {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation globalAddr)
         _ -> RX.AnnotatedOperand v R.NoRelocation
+    allocMemFnAddress = supportFunctions Map.! RT.AllocMemory
 
 {- Note [System Calls]
 

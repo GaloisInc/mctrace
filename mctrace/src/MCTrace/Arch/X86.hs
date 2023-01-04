@@ -70,7 +70,7 @@ preAnalyze probeIndex library env = do
 
   let storageFile = MC.probeStorageFile probeIndex
   let storageBytes = MC.probeStorageBytes probeIndex
-  let initCode = MAS.linuxInitializationCode storageFile storageBytes storePtrAddr RX.X86Repr origEntryAddr
+  let initCode = MAS.linuxInitializationCode storageFile storageBytes storePtrAddr supportFunAddrMap RX.X86Repr origEntryAddr
   setupSymAddr <- R.injectInstructions "__mctrace_setup" RX.X86Repr initCode
   return MA.InjectedAssets { MA.injectedProbeAddrs = probeAddrs
                            , MA.injectedStorePointer = storePtrAddr
