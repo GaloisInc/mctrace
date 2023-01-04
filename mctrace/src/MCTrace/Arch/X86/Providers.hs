@@ -121,15 +121,16 @@ symAddrForSymbol locationAnalysis symName = do
   entryAddr <- Map.lookup (BSC.pack symName) (MA.functionEntryPoints locationAnalysis)
   Map.lookup entryAddr (MA.symbolicAddresses locationAnalysis) <|> Just (R.stableAddress entryAddr)
 
-matcher
+matcherEntry
   :: LD.ProbeDescription
   -> [String]
   -> MA.ProbeLocationAnalysisResult globals RX.X86_64
   -> R.SymbolicBlock RX.X86_64
   -> Maybe (MP.ProbeInserter RX.X86_64)
-matcher providerName symNames locationAnalysis symBlock = do
+matcherEntry providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
-  -- if the last one points to 'read', we can fire the probe
+  -- if the last one points to one of the functions we are looking for, we
+  -- can fire the probe.
   --
   -- The mapping from symbolic addresses to concrete addresses can be found
   -- in the configuration (via 'R.getSymbolicBlockMap')
@@ -144,6 +145,31 @@ matcher providerName symNames locationAnalysis symBlock = do
           rinsns = term DLN.:| (reverse callSequence <> rest)
       in DLN.reverse rinsns
 
+matcherExit
+  :: LD.ProbeDescription
+  -> [String]
+  -> MA.ProbeLocationAnalysisResult globals RX.X86_64
+  -> R.SymbolicBlock RX.X86_64
+  -> Maybe (MP.ProbeInserter RX.X86_64)
+matcherExit providerName symNames locationAnalysis symBlock = do
+  -- symbolic blocks have symbolic jump targets annotated on instructions;
+  -- if the last one points to one of the functions we are looking for, we
+  -- can fire the probe.
+  --
+  -- The mapping from symbolic addresses to concrete addresses can be found
+  -- in the configuration (via 'R.getSymbolicBlockMap')
+  let symAddrs = mapMaybe (symAddrForSymbol locationAnalysis) symNames
+  withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
+    guard (any (== lastSymTgt) symAddrs)
+    let assets = MA.injectedAssets locationAnalysis
+    let probeSymAddrs = mapMaybe (matchProvider providerName) (MA.injectedProbeAddrs assets)
+    return $ MP.ProbeInserter $ \irep insns ->
+      -- FIXME: Currently the instructions to insert the probe are the same, irrespective
+      -- of whether it is at entry or exit. This is likely to change in the future. So, it
+      -- may be good to have a separate version of `callProbe` for exit probes.
+      let callSequence = concatMap (callProbe locationAnalysis irep) probeSymAddrs
+      in insns <> DLN.fromList callSequence
+
 -- | A probe that fires at the entry to `read` (the user-level wrapper around
 -- the syscall, provided by libc)
 --
@@ -157,7 +183,7 @@ readEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
 readEntrySyscallProvider =
   MP.ProbeProvider { MP.providerName = name
                    , MP.providerDescription = desc
-                   , MP.providerMatcher = matcher name ["read", "read@plt"]
+                   , MP.providerMatcher = matcherEntry name ["read", "read@plt"]
                    }
   where
     name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
@@ -172,7 +198,7 @@ writeEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
 writeEntrySyscallProvider =
   MP.ProbeProvider { MP.providerName = name
                    , MP.providerDescription = desc
-                   , MP.providerMatcher = matcher name ["write", "write@plt"]
+                   , MP.providerMatcher = matcherEntry name ["write", "write@plt"]
                    }
   where
     name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
@@ -187,7 +213,7 @@ openEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
 openEntrySyscallProvider =
   MP.ProbeProvider { MP.providerName = name
                    , MP.providerDescription = desc
-                   , MP.providerMatcher = matcher name ["open", "open@plt"]
+                   , MP.providerMatcher = matcherEntry name ["open", "open@plt"]
                    }
   where
     name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
@@ -198,10 +224,11 @@ openEntrySyscallProvider =
     desc = PP.hsep [ PP.pretty "Probe fires at the entry to `open` system calls"
                    ]
 
-_readReturnSyscallProvider :: MP.ProbeProvider globals arch
-_readReturnSyscallProvider =
+readReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+readReturnSyscallProvider =
   MP.ProbeProvider { MP.providerName = name
                    , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["read", "read@plt"]
                    }
   where
     name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
@@ -214,6 +241,7 @@ _readReturnSyscallProvider =
 
 providers :: [MP.ProbeProvider globals RX.X86_64]
 providers = [ readEntrySyscallProvider
+            , readReturnSyscallProvider
             , writeEntrySyscallProvider
             , openEntrySyscallProvider
             ]
