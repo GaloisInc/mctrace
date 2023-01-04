@@ -63,9 +63,10 @@ withOptional ma k =
 -- validation of that file)
 archConfigurations
   :: MC.ProbeIndex globals w
+  -> DE.ElfHeaderInfo n
   -> [(R.Architecture, R.SomeConfig (R.AnalyzeAndRewrite MA.LogEvent) (MA.ProbeLocationAnalysisResult globals))]
-archConfigurations probes =
-  [ (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr (RX.config (MAX.x86Rewriter probes)))
+archConfigurations probes library =
+  [ (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr (RX.config (MAX.x86Rewriter probes library)))
   ]
 
 saveLLVMDebugInfo
@@ -121,11 +122,14 @@ instrument iopts = do
             Left err -> X.throwIO err
             Right idx -> return idx
 
+          -- Load the runtime support library module
+          DE.SomeElf mcLibraryELF <- ML.loadBinary (O.iLibraryFile iopts)
+
           hdlAlloc <- LCF.newHandleAllocator
 
           -- Use the binary rewriter to insert the generated code and add calls
           -- to the probes at appropriate locations
-          let configs = archConfigurations probeIndex
+          let configs = archConfigurations probeIndex mcLibraryELF
           R.withElfConfig someHeader configs $ \renovateConfig headerInfo loadedBinary -> do
             let strat = R.LayoutStrategy R.Parallel R.BlockGrouping R.AlwaysTrampoline
             (newElf0, ares, rwInfo) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
