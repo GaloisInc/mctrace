@@ -8,6 +8,7 @@ module MCTrace.Codegen (
     BinaryWord
   , ProbeIndex(..)
   , indexELFProbes
+  , withElfClassConstraints
   ) where
 
 import qualified Control.Lens as L

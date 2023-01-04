@@ -18,6 +18,7 @@ data TraceException = DTraceParseFailure FilePath X.SomeException
                     | ErrorLoadingGeneratedProbes String
                     | ELFParseError [DE.ElfParseError]
                     | MissingGeneratedProbeSection String
+                    | MissingSupportFunction String
                     | MultipleGeneratedProbeSections String
                     | MissingProbeSymbol String
                     | ErrorReadingMappingFile FilePath String

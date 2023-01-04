@@ -29,6 +29,7 @@ library
                        MCTrace.ProbeProvider
                        MCTrace.PLT
                        MCTrace.Panic
+                       MCTrace.Runtime
   -- other-extensions:
   build-depends:       base >=4.10 && < 5,
                        binary >= 0.8 && < 0.9,

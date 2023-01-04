@@ -3,17 +3,24 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 module MCTrace.Arch.X86 (
   x86Rewriter
   ) where
 
+import           Control.Monad ( unless )
+import           Control.Monad.IO.Class ( liftIO )
+import qualified Control.Monad.Catch as X
+import qualified Control.Monad.Except as CME
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ElfEdit as EE
 import qualified Data.ElfEdit.Prim as EEP
+import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
+import qualified Data.List as DL
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Macaw.BinaryLoader as MBL
 import           Data.Macaw.BinaryLoader.X86 ()
@@ -32,6 +39,8 @@ import qualified MCTrace.Analysis as MA
 import qualified MCTrace.Arch.X86.Providers as MAP
 import qualified MCTrace.Arch.X86.Setup as MAS
 import qualified MCTrace.Codegen as MC
+import qualified MCTrace.Exceptions as ME
+import qualified MCTrace.Runtime as RT
 import qualified MCTrace.ProbeProvider as MP
 import qualified MCTrace.PLT as PLT
 
@@ -43,14 +52,17 @@ import qualified MCTrace.PLT as PLT
 preAnalyze
   :: (R.HasAnalysisEnv env, R.HasSymbolicBlockMap env, MBL.BinaryLoader RX.X86_64 binFmt, binFmt ~ EE.ElfHeaderInfo 64)
   => MC.ProbeIndex globals w
+  -> EE.ElfHeaderInfo n
   -> env RX.X86_64 binFmt
   -> R.RewriteM MA.LogEvent RX.X86_64 (MA.InjectedAssets globals RX.X86_64)
-preAnalyze probeIndex env = do
+preAnalyze probeIndex library env = do
   probeAddrs <- DT.forM (MC.probeOffsets probeIndex) $ \(p, probeSymbol, bytes) -> do
     symPtr <- R.injectFunction ("__mctrace_" ++ probeSymbol) bytes
     return (p, symPtr)
   storePtrAddr <- R.newGlobalVar "__mctrace_probeStore" (fromIntegral (PN.natValue (MC.pointerWidth probeIndex)) `div` 8)
 
+  supportFunAddrMap <- injectModule library RT.supportFunctionNameMap
+  
   let loadedBinary = R.analysisLoadedBinary env
   let mem = MBL.memoryImage loadedBinary
   let Just (origEntrySegoff DLN.:| _) = MBL.entryPoints loadedBinary
@@ -62,6 +74,7 @@ preAnalyze probeIndex env = do
   setupSymAddr <- R.injectInstructions "__mctrace_setup" RX.X86Repr initCode
   return MA.InjectedAssets { MA.injectedProbeAddrs = probeAddrs
                            , MA.injectedStorePointer = storePtrAddr
+                           , MA.injectedSupportFunctions = supportFunAddrMap
                            , MA.injectedEntryAddr = setupSymAddr
                            }
 
@@ -83,6 +96,65 @@ indexFunctionEntries env =
     normalSymbols = [ (fromMaybe (BSC.pack (show entryAddr)) (DMD.discoveredFunSymbol dfi), entryAddr)
                     | (entryAddr, (_blockAddrs, Some dfi)) <- Map.toList (R.biFunctions blockInfo)
                     ]
+
+injectModule
+  :: EE.ElfHeaderInfo n
+  -> Map.Map RT.SupportFunction String
+  -> R.RewriteM MA.LogEvent RX.X86_64 (Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64))
+injectModule library supportFunNames = do
+  fnBytes <- case indexFunctions of
+    Left err -> X.throwM err
+    Right v  -> do 
+      liftIO $ print $ map (\(nm, bytes) -> (nm, BSC.length bytes)) v
+      return v
+  --unless (length fnBytes == Map.size supportFunNames) $ do
+  --  CME.throwError (ME.MissingSupportFunction "TBD")
+  mapM_ (liftIO . print . fst) fnBytes
+  Map.fromList <$> mapM injectFn fnBytes
+  where
+    -- injectFn :: (BS.ByteString, BS.ByteString) -> (BS.ByteString, R.SymbolicAddress RX.X86_64)
+    injectFn (fnid, bytes) = (fnid,) <$> R.injectFunction ("__mctrace_runtime_" ++ show fnid) bytes
+    indexFunctions :: Either ME.TraceException [(RT.SupportFunction, BS.ByteString)]
+    indexFunctions = CME.runExcept $ MC.withElfClassConstraints library $ do
+      let (errs, elf) = EE.getElf library
+      unless (null errs) $ do
+        CME.throwError (ME.ELFParseError errs)
+
+      symbolTable <- case EE.elfSymtab elf of
+        [] -> CME.throwError (ME.MissingGeneratedProbeSection ".symtab")
+        [symtab] -> return symtab
+        _ -> CME.throwError (ME.MultipleGeneratedProbeSections ".symtab")
+
+      textSec <- case EE.findSectionByName (BSC.pack ".text") elf of
+        [] -> CME.throwError (ME.MissingGeneratedProbeSection ".text")
+        [textSection] -> return textSection
+        _ -> CME.throwError (ME.MultipleGeneratedProbeSections ".text")
+
+      let baseAddr = EE.elfSectionAddr textSec
+
+      let textSecBytes = EE.elfSectionData textSec
+      let symbolOffsetPairs = [ (entryName, toInteger (EE.steValue entry - baseAddr))
+                              | entry <- F.toList (EE.symtabEntries symbolTable)
+                              , let entryName = BSC.unpack (EE.steName entry)
+                              ]
+      -- let relevantSymbolOffsetPairs = mapMaybe (\(fnid, en, addr) -> ) supportFunNames
+      let nameMap = Map.fromList $ map (\(fnid, name) -> (name, fnid)) $ Map.toList supportFunNames
+      let fnBytes = splitFunctions textSecBytes symbolOffsetPairs
+      let relevantFnBytes = mapMaybe (\(nm, bytes) -> (, bytes) <$> Map.lookup nm nameMap) fnBytes
+      return relevantFnBytes
+
+    splitFunctions textSecBytes symbolOffsetPairs =
+      go [] asList
+      where
+        asList = DL.sortOn snd symbolOffsetPairs
+        go acc [] = reverse acc
+        go acc [(sym, off)] = reverse ((sym, BS.drop (fromIntegral off) textSecBytes) : acc)
+        go acc ((sym, off) : next@(_, nextOff) : rest) =
+          let withoutPrefix = BS.drop (fromIntegral off) textSecBytes
+              justFunc = BS.take (fromIntegral nextOff - fromIntegral off) withoutPrefix
+          in go ((sym, justFunc) : acc) (next : rest)
+
+
 
 -- | Analyze the binary in the context of the pre-analysis state
 analyze
@@ -130,9 +202,10 @@ rewrite _probeIndex _env probeLocations _ symBlock =
 x86Rewriter
   :: (MBL.BinaryLoader RX.X86_64 binFmt, binFmt ~ EE.ElfHeaderInfo 64)
   => MC.ProbeIndex globals w
+  -> EE.ElfHeaderInfo n
   -> R.AnalyzeAndRewrite MA.LogEvent RX.X86_64 binFmt (MA.ProbeLocationAnalysisResult globals)
-x86Rewriter probes =
-  R.AnalyzeAndRewrite { R.arPreAnalyze = preAnalyze probes
+x86Rewriter probes library =
+  R.AnalyzeAndRewrite { R.arPreAnalyze = preAnalyze probes library
                       , R.arAnalyze = analyze
                       , R.arPreRewrite = preRewrite
                       , R.arRewrite = rewrite probes
