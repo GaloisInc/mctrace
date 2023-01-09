@@ -18,7 +18,7 @@ data TraceException = DTraceParseFailure FilePath X.SomeException
                     | ErrorLoadingGeneratedProbes String
                     | ELFParseError [DE.ElfParseError]
                     | MissingGeneratedProbeSection String
-                    | MissingSupportFunction String
+                    | MissingSupportFunction [String]
                     | MultipleGeneratedProbeSections String
                     | MissingProbeSymbol String
                     | ErrorReadingMappingFile FilePath String
@@ -64,6 +64,8 @@ ppTraceException te =
         PP.indent 2 (PP.vsep (map (\e -> PP.pretty "* " <> PP.viaShow e) errs))
     MissingGeneratedProbeSection name ->
       PP.pretty "Missing section " <> PP.pretty name <> PP.pretty " in the object file generated from the probe definitions"
+    MissingSupportFunction names ->
+      PP.pretty "Missing support functions in the runtime library: " <> PP.prettyList names
     MultipleGeneratedProbeSections name ->
       PP.pretty "Multiple sections named " <> PP.pretty name <> PP.pretty " in the object file generated from the probe definitions"
     MissingProbeSymbol name ->

@@ -102,17 +102,20 @@ injectModule
   -> Map.Map RT.SupportFunction String
   -> R.RewriteM MA.LogEvent RX.X86_64 (Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64))
 injectModule library supportFunNames = do
+  -- Index the functions in the library
   fnBytes <- case indexFunctions of
     Left err -> X.throwM err
     Right v  -> do 
       liftIO $ print $ map (\(nm, bytes) -> (nm, BSC.length bytes)) v
       return v
-  --unless (length fnBytes == Map.size supportFunNames) $ do
-  --  CME.throwError (ME.MissingSupportFunction "TBD")
   mapM_ (liftIO . print . fst) fnBytes
+  -- Ensure that all support functions are present
+  let missingFns = missingSupportFunctions fnBytes
+  unless (null missingFns) $ 
+    X.throwM (ME.MissingSupportFunction missingFns)
+  -- Inject each one individually
   Map.fromList <$> mapM injectFn fnBytes
   where
-    -- injectFn :: (BS.ByteString, BS.ByteString) -> (BS.ByteString, R.SymbolicAddress RX.X86_64)
     injectFn (fnid, bytes) = (fnid,) <$> R.injectFunction ("__mctrace_runtime_" ++ show fnid) bytes
     indexFunctions :: Either ME.TraceException [(RT.SupportFunction, BS.ByteString)]
     indexFunctions = CME.runExcept $ MC.withElfClassConstraints library $ do
@@ -154,7 +157,10 @@ injectModule library supportFunNames = do
               justFunc = BS.take (fromIntegral nextOff - fromIntegral off) withoutPrefix
           in go ((sym, justFunc) : acc) (next : rest)
 
-
+    missingSupportFunctions :: [(RT.SupportFunction, BS.ByteString)] -> [RT.SupportFunction]
+    missingSupportFunctions supportFnBytes =
+      let missing = foldl (\m (k, _) -> k `Map.delete` m) supportFunNames supportFnBytes in
+      Map.keys missing  
 
 -- | Analyze the binary in the context of the pre-analysis state
 analyze
