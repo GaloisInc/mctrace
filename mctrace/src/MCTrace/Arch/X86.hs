@@ -112,7 +112,7 @@ injectModule library supportFunNames = do
   -- Ensure that all support functions are present
   let missingFns = missingSupportFunctions fnBytes
   unless (null missingFns) $ 
-    X.throwM (ME.MissingSupportFunction missingFns)
+    X.throwM (ME.MissingSupportFunction (show <$> missingFns))
   -- Inject each one individually
   Map.fromList <$> mapM injectFn fnBytes
   where
