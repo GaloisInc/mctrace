@@ -174,7 +174,29 @@ compileProbeBody :: GlobalStore
 compileProbeBody globalOperands supportFnsOperand localVars stmts = do
   localOperands <- Ctx.traverseWithIndex allocateLocal localVars
   mapM_ (compileStatement globalOperands localOperands) stmts
-  IRB.retVoid
+  sendStatement globalOperands supportFnsOperand
+  -- IRB.retVoid
+  
+sendStatement :: GlobalStore -> ProbeSupportFunctions -> IRB.IRBuilderT (Builder globals) ()
+sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunctions) = do
+  fn <- IRB.load probeSupportFunctions sendFnIndex
+  castedFn <- IRB.bitcast fn (pointerType sendFnType)
+  gStore <- IRB.load globalStore 0
+  castedGlobalStore <- IRB.bitcast gStore (pointerType IRT.i8)
+  globalsSize <- fromIntegral <$> calcGlobalsSize
+  let operands = [(IRBC.int64 fdToUse, []), (castedGlobalStore, []), (IRBC.int64 globalsSize, [])]
+  CMS.void $ IRB.call castedFn operands
+  return ()
+  where
+    fdToUse = 1 -- STDOUT
+    sendFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Send
+    sendFnType = IRT.FunctionType IRT.VoidType [IRT.i64, pointerType IRT.i8, IRT.i64] False    
+    calcGlobalsSize :: IRB.IRBuilderT (Builder globals) Word32
+    calcGlobalsSize = do
+      gvs <- CMT.lift (CMR.asks globalVars)
+      let count = Ctx.sizeInt $ Ctx.size gvs
+      return $ fromIntegral count * globalSlotSize
+
 
 data GlobalStore = GlobalStore IR.Operand
 data ProbeSupportFunctions = ProbeSupportFunctions IR.Operand
