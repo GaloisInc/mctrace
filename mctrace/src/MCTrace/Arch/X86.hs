@@ -59,10 +59,14 @@ preAnalyze probeIndex library env = do
   probeAddrs <- DT.forM (MC.probeOffsets probeIndex) $ \(p, probeSymbol, bytes) -> do
     symPtr <- R.injectFunction ("__mctrace_" ++ probeSymbol) bytes
     return (p, symPtr)
-  storePtrAddr <- R.newGlobalVar "__mctrace_probeStore" (fromIntegral (PN.natValue (MC.pointerWidth probeIndex)) `div` 8)
+  let pointerWidth = fromIntegral (PN.natValue (MC.pointerWidth probeIndex)) `div` 8
+  storePtrAddr <- R.newGlobalVar "__mctrace_probeStore" pointerWidth
 
   supportFunAddrMap <- injectModule library RT.supportFunctionNameMap
-  
+
+  let supportFunArraySize = pointerWidth * fromIntegral (length RT.probeSupportFunctions)
+  probeSupportFunArrayAddr <- R.newGlobalVar "__mctrace_probeSupportFuns" supportFunArraySize
+
   let loadedBinary = R.analysisLoadedBinary env
   let mem = MBL.memoryImage loadedBinary
   let Just (origEntrySegoff DLN.:| _) = MBL.entryPoints loadedBinary
@@ -70,11 +74,11 @@ preAnalyze probeIndex library env = do
 
   let storageFile = MC.probeStorageFile probeIndex
   let storageBytes = MC.probeStorageBytes probeIndex
-  let initCode = MAS.linuxInitializationCode storageFile storageBytes storePtrAddr supportFunAddrMap RX.X86Repr origEntryAddr
+  let initCode = MAS.linuxInitializationCode storageFile storageBytes storePtrAddr supportFunAddrMap probeSupportFunArrayAddr RX.X86Repr pointerWidth origEntryAddr
   setupSymAddr <- R.injectInstructions "__mctrace_setup" RX.X86Repr initCode
   return MA.InjectedAssets { MA.injectedProbeAddrs = probeAddrs
                            , MA.injectedStorePointer = storePtrAddr
-                           , MA.injectedSupportFunctions = supportFunAddrMap
+                           , MA.probeSupportFunctionsPtr = probeSupportFunArrayAddr
                            , MA.injectedEntryAddr = setupSymAddr
                            }
 
@@ -105,13 +109,13 @@ injectModule library supportFunNames = do
   -- Index the functions in the library
   fnBytes <- case indexFunctions of
     Left err -> X.throwM err
-    Right v  -> do 
+    Right v  -> do
       liftIO $ print $ map (\(nm, bytes) -> (nm, BSC.length bytes)) v
       return v
   mapM_ (liftIO . print . fst) fnBytes
   -- Ensure that all support functions are present
   let missingFns = missingSupportFunctions fnBytes
-  unless (null missingFns) $ 
+  unless (null missingFns) $
     X.throwM (ME.MissingSupportFunction (show <$> missingFns))
   -- Inject each one individually
   Map.fromList <$> mapM injectFn fnBytes
@@ -160,7 +164,7 @@ injectModule library supportFunNames = do
     missingSupportFunctions :: [(RT.SupportFunction, BS.ByteString)] -> [RT.SupportFunction]
     missingSupportFunctions supportFnBytes =
       let missing = foldl (\m (k, _) -> k `Map.delete` m) supportFunNames supportFnBytes in
-      Map.keys missing  
+      Map.keys missing
 
 -- | Analyze the binary in the context of the pre-analysis state
 analyze

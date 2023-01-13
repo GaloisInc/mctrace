@@ -77,12 +77,18 @@ callProbe
   -> [R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)]
 callProbe locationAnalysis repr@RX.X86Repr probeAddr =
   [ RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg F86.RDI]
+  , RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg F86.RSI]
   , RX.annotateInstrWith addMemAddr $
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
+  , RX.annotateInstrWith addProbeSupportFnsAddr $
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
+                              , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
+                              ]                              
   , RX.annotateInstrWith addJumpTarget $
       RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
+  , RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg F86.RSI]
   , RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg F86.RDI]
   ]
   where
@@ -94,7 +100,12 @@ callProbe locationAnalysis repr@RX.X86Repr probeAddr =
       case v of
         (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation globalStorePtr)
         _ -> RX.AnnotatedOperand v R.NoRelocation
+    addProbeSupportFnsAddr (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation probeSupportFnsPtr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
     globalStorePtr = MA.injectedStorePointer (MA.injectedAssets locationAnalysis)
+    probeSupportFnsPtr = MA.probeSupportFunctionsPtr (MA.injectedAssets locationAnalysis)
 
 -- | If the last instruction is a jump, return its symbolic target
 --

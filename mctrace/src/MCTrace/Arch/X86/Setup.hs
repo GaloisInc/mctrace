@@ -8,6 +8,7 @@ import qualified Data.ByteString.UTF8 as DBU
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
+import           Data.Maybe ( fromJust )
 import           Data.Word ( Word32 )
 
 import qualified Flexdis86 as F86
@@ -15,7 +16,7 @@ import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
 
 import qualified MCTrace.Runtime as RT
-
+import MCTrace.Runtime ( probeSupportFunctions, probeSupportFunctionIndexMap )
 
 i :: RX.Instruction tp () -> R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)
 i = RX.noAddr
@@ -70,6 +71,40 @@ allocMemory repr allocFnSymAddress globalStoreBytes path =
         (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation allocFnSymAddress)
         _ -> RX.AnnotatedOperand v R.NoRelocation
 
+initializeProbeSupportFunArray 
+  :: R.InstructionArchRepr RX.X86_64 tp
+  -> Word32
+  -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64) 
+  -> R.ConcreteAddress RX.X86_64 
+  -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
+initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr =
+  baseAddrInstr DLN.:| concatMap storeFnAddr probeSupportFunctions
+  where
+    baseAddrInstr =  RX.annotateInstrWith annotateRootAddr $ RX.makeInstr repr "lea" 
+                     [ F86.QWordReg F86.RDI
+                     , F86.VoidMem (F86.IP_Offset_64 F86.DS (F86.Disp32 (F86.Imm32Concrete 0)))
+                     ]
+    annotateRootAddr (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation probeSupportFunArrayAddr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
+    storeFnAddr fn = 
+      let symAddr = supportFunctions Map.! fn
+          index = probeSupportFunctionIndexMap Map.! fn
+      in [ RX.annotateInstrWith (addSupportFnAddr symAddr) $ RX.makeInstr repr "lea" 
+           [ F86.QWordReg F86.R9
+           , F86.VoidMem (F86.Addr_64 F86.DS (Just F86.RDI) Nothing (F86.Disp32 (F86.Imm32Concrete 0)))
+           ]
+         , i $ RX.makeInstr repr "mov" 
+           [ F86.Mem64 (F86.Addr_64 F86.DS (Just F86.RDI) Nothing (F86.Disp32 (F86.Imm32Concrete (displacement index))))
+           , F86.QWordReg F86.R9
+           ]
+         ]
+    addSupportFnAddr symAddr (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation symAddr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
+    displacement index = fromIntegral (fromIntegral index * pointerWidth)
 
 neconcat :: DLN.NonEmpty (DLN.NonEmpty a) -> DLN.NonEmpty a
 neconcat nel =
@@ -92,12 +127,16 @@ linuxInitializationCode
   -- ^ The address of the global variable that will hold the pointer to the storage area
   -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64)
   -- ^ The symbolic addresses assigned to each support function we injected
+  -> R.ConcreteAddress RX.X86_64
+  -- ^ The address of the global variable that will hold array of probe accessible function addresses
   -> R.InstructionArchRepr RX.X86_64 tp
   -- ^ The repr indicating which instruction set to use
+  -> Word32
+  -- ^ Width of a pointer on this architecture
   -> R.ConcreteAddress RX.X86_64
   -- ^ The original entry point to the program
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-linuxInitializationCode path globalStoreBytes globalAddr supportFunctions repr origEntry =
+linuxInitializationCode path globalStoreBytes globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
   neconcat (-- Save the registers we are going to clobber to the stack
             applyRegisters repr "push" usedRegisters DLN.:|
             [
@@ -114,6 +153,8 @@ linuxInitializationCode path globalStoreBytes globalAddr supportFunctions repr o
                , F86.QWordReg F86.RAX
                ]
            ) DLN.:| []
+         -- Initialize the probe support function gloabl array of pointers
+         , initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr
            -- Restore saved values
          , applyRegisters repr "pop" (DLN.reverse usedRegisters)
          , (RX.annotateInstrWith addEntryAddr $

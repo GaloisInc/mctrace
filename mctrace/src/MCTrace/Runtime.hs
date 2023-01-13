@@ -1,21 +1,27 @@
-module MCTrace.Runtime ( 
+module MCTrace.Runtime (
     SupportFunction(..)
-  , SupportFunctionMap
   , supportFunctionNameMap
+  , probeSupportFunctions
+  , probeSupportFunctionIndexMap
 ) where
 
-import qualified Data.Map as Map
-import Data.Ix (Ix)
 
+import           Data.Ix (Ix)
+import qualified Data.Map as Map
+import           Data.Tuple ( swap )
 
 data SupportFunction = AllocMemory | Send
     deriving (Eq, Ord, Show, Enum, Ix)
 
-type SupportFunctionMap = Map.Map SupportFunction
-
-supportFunctionNameMap :: SupportFunctionMap String
-supportFunctionNameMap = 
+supportFunctionNameMap :: Map.Map SupportFunction String
+supportFunctionNameMap =
     Map.fromList [ (AllocMemory, "alloc_memory")
                  , (Send, "send")
                  ]
 
+
+probeSupportFunctions :: [SupportFunction]
+probeSupportFunctions = [ Send ]
+
+probeSupportFunctionIndexMap :: Map.Map SupportFunction Int
+probeSupportFunctionIndexMap = Map.fromList $ zipWith (curry swap) [0..] probeSupportFunctions

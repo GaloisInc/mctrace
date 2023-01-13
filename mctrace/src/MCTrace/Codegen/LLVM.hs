@@ -35,12 +35,15 @@ import qualified LLVM.AST.Type as IRT
 import qualified LLVM.CodeGenOpt as LLCGO
 import qualified LLVM.CodeModel as LLC
 import qualified LLVM.IRBuilder as IRB
+import qualified LLVM.IRBuilder.Constant as IRBC
+import qualified LLVM.Module as LLM
 import qualified LLVM.Relocation as LLR
 import qualified LLVM.Target as LLT
 import qualified Language.DTrace.Syntax.Typed as ST
 
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Panic as MP
+import qualified MCTrace.Runtime as RT
 
 -- | The global translation environment, which records the offset from the
 -- storage base pointer for each global variable
@@ -164,15 +167,17 @@ compileStatement globals locals stmt =
       IRB.store dst 0 val
 
 compileProbeBody :: GlobalStore
+                 -> ProbeSupportFunctions
                  -> Ctx.Assignment ST.LocalVariable locals
                  -> [ST.Stmt globals locals]
                  -> IRB.IRBuilderT (Builder globals) ()
-compileProbeBody globalOperands localVars stmts = do
+compileProbeBody globalOperands supportFnsOperand localVars stmts = do
   localOperands <- Ctx.traverseWithIndex allocateLocal localVars
   mapM_ (compileStatement globalOperands localOperands) stmts
   IRB.retVoid
 
 data GlobalStore = GlobalStore IR.Operand
+data ProbeSupportFunctions = ProbeSupportFunctions IR.Operand
 
 pointerType :: IRT.Type -> IRT.Type
 pointerType t = IRT.PointerType t (IRA.AddrSpace 0)
@@ -180,11 +185,15 @@ pointerType t = IRT.PointerType t (IRA.AddrSpace 0)
 compileProbe :: (ST.Probe globals, String) -> Builder globals ()
 compileProbe (ST.Probe _descs _guard localVars stmts, fname) = do
   let storage = (pointerType (pointerType (IRT.IntegerType 8)), IRB.ParameterName (fromString "storage"))
-  _ <- IRB.function (IR.mkName fname) [storage] IRT.VoidType $ \operands ->
+  let supportFns = (pointerType (pointerType dummyFunType), IRB.ParameterName (fromString "supportfns"))
+  _ <- IRB.function (IR.mkName fname) [storage, supportFns] IRT.VoidType $ \operands ->
     case operands of
-      [storageOp] -> compileProbeBody (GlobalStore storageOp) localVars stmts
+      [storageOp, supportFnsOp] -> compileProbeBody (GlobalStore storageOp) (ProbeSupportFunctions supportFnsOp) localVars stmts
       _ -> MP.panic MP.LLVMCodegen "compileProbe" ["Impossible argument list"]
   return ()
+  where
+    dummyFunType = IRT.FunctionType (pointerType IRT.i64) [IRT.i64, IRT.i64] False
+
 
 globalSlotSize :: Word32
 globalSlotSize = 8
