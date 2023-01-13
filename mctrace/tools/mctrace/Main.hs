@@ -16,6 +16,7 @@ import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
 import qualified Data.Traversable as T
 import           Data.Word ( Word32, Word64 )
+import qualified LLVM.Analysis as LLA
 import qualified LLVM.Context as LLCX
 import qualified LLVM.Module as LLM
 import qualified LLVM.Target as LLT
@@ -103,6 +104,8 @@ instrument iopts = do
       LLT.initializeAllTargets
       MCL.withLLVMOptions someHeader $ \tm -> do
         LLCX.withContext $ \ctx -> LLM.withModuleFromAST ctx llvmModule $ \nativeModule -> do
+          -- Verify this module to catch errors early
+          LLA.verify nativeModule
           -- Construct the object file containing the probe definitions from our
           -- LLVM IR; this must be invoked before the rewriter, as the probes
           -- are a required argument to the rewriter
