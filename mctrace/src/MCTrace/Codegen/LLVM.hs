@@ -36,11 +36,11 @@ import qualified LLVM.CodeGenOpt as LLCGO
 import qualified LLVM.CodeModel as LLC
 import qualified LLVM.IRBuilder as IRB
 import qualified LLVM.IRBuilder.Constant as IRBC
-import qualified LLVM.Module as LLM
 import qualified LLVM.Relocation as LLR
 import qualified LLVM.Target as LLT
 import qualified Language.DTrace.Syntax.Typed as ST
 
+import qualified MCTrace.Builtins as MB
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Panic as MP
 import qualified MCTrace.Runtime as RT
@@ -114,15 +114,20 @@ globalVarOperand (GlobalStore storeOp) idx = do
   IRB.bitcast ptr ptrType
 
 op :: GlobalStore
+    -> ProbeSupportFunctions
    -> Ctx.Assignment (C.Const IR.Operand) locals
    -> ST.Reg globals locals tp
    -> IRB.IRBuilderT (Builder globals) IR.Operand
-op globals locals reg =
+op globals (ProbeSupportFunctions supportFnsOperand) locals reg =
   case reg of
     ST.LocalReg idx -> IRB.load (C.getConst (locals Ctx.! idx)) stackAlignment
     ST.GlobalVar idx -> do
       gptr <- globalVarOperand globals idx
       IRB.load gptr 0
+    ST.BuiltinVar builtin t -> do
+      -- NOTE: Simplified. Need fix for more complex built-ins
+      let MB.BuiltinVarCompiler { MB.compile = provider } = MB.builtinVarCompilers Map.! builtin
+      provider (MB.BuiltinVarCompilerArgs supportFnsOperand Nothing)
 
 mapply2 :: (Monad m) => (t1 -> t2 -> m b) -> m t1 -> m t2 -> m b
 mapply2 f o1 o2 = do
@@ -131,30 +136,32 @@ mapply2 f o1 o2 = do
   f o1' o2'
 
 compileExpr :: GlobalStore
+            -> ProbeSupportFunctions
             -> Ctx.Assignment (C.Const IR.Operand) locals
             -> ST.App (ST.Reg globals locals) tp
             -> IRB.IRBuilderT (Builder globals) IR.Operand
-compileExpr globals locals app =
+compileExpr globals supportFnsOperand locals app =
   case app of
     ST.LitInt _fmt rep bv ->
       return $ IR.ConstantOperand IRC.Int { IRC.integerBits = fromIntegral (PN.natValue rep), IRC.integerValue = DBS.asUnsigned bv }
 
-    ST.BVAdd _ r1 r2 -> mapply2 IRB.add (op globals locals r1) (op globals locals r2)
-    ST.BVSub _ r1 r2 -> mapply2 IRB.sub (op globals locals r1) (op globals locals r2)
-    ST.BVMul _ r1 r2 -> mapply2 IRB.mul (op globals locals r1) (op globals locals r2)
+    ST.BVAdd _ r1 r2 -> mapply2 IRB.add (op globals supportFnsOperand locals r1) (op globals supportFnsOperand locals r2)
+    ST.BVSub _ r1 r2 -> mapply2 IRB.sub (op globals supportFnsOperand locals r1) (op globals supportFnsOperand locals r2)
+    ST.BVMul _ r1 r2 -> mapply2 IRB.mul (op globals supportFnsOperand locals r1) (op globals supportFnsOperand locals r2)
 
-    ST.BVAnd _ r1 r2 -> mapply2 IRB.and (op globals locals r1) (op globals locals r2)
-    ST.BVOr _ r1 r2 -> mapply2 IRB.or (op globals locals r1) (op globals locals r2)
-    ST.BVXor _ r1 r2 -> mapply2 IRB.xor (op globals locals r1) (op globals locals r2)
+    ST.BVAnd _ r1 r2 -> mapply2 IRB.and (op globals supportFnsOperand locals r1) (op globals supportFnsOperand locals r2)
+    ST.BVOr _ r1 r2 -> mapply2 IRB.or (op globals supportFnsOperand locals r1) (op globals supportFnsOperand locals r2)
+    ST.BVXor _ r1 r2 -> mapply2 IRB.xor (op globals supportFnsOperand locals r1) (op globals supportFnsOperand locals r2)
 
 compileStatement :: GlobalStore
+                 -> ProbeSupportFunctions
                  -> Ctx.Assignment (C.Const IR.Operand) locals
                  -> ST.Stmt globals locals
                  -> IRB.IRBuilderT (Builder globals) ()
-compileStatement globals locals stmt =
+compileStatement globals supportFnsOperand locals stmt =
   case stmt of
     ST.SetReg localIdx (ST.Expr app) -> do
-      operand <- compileExpr globals locals app
+      operand <- compileExpr globals supportFnsOperand locals app
       IRB.store (C.getConst (locals Ctx.! localIdx)) 0 operand
     ST.WriteGlobal globalIdx (ST.LocalReg localIdx) -> do
       dst <- globalVarOperand globals globalIdx
@@ -164,7 +171,13 @@ compileStatement globals locals stmt =
       src <- globalVarOperand globals srcIdx
       dst <- globalVarOperand globals globalIdx
       val <- IRB.load src stackAlignment
-      IRB.store dst 0 val
+      IRB.store dst 0 val 
+    ST.WriteGlobal globalIdx (ST.BuiltinVar builtin _) -> do
+      let MB.BuiltinVarCompiler { MB.compile = provider } = MB.builtinVarCompilers Map.! builtin
+          (ProbeSupportFunctions supportFnsOp) = supportFnsOperand
+      dst <- globalVarOperand globals globalIdx
+      val <- provider (MB.BuiltinVarCompilerArgs supportFnsOp Nothing)
+      IRB.store dst 0 val 
 
 compileProbeBody :: GlobalStore
                  -> ProbeSupportFunctions
@@ -173,20 +186,20 @@ compileProbeBody :: GlobalStore
                  -> IRB.IRBuilderT (Builder globals) ()
 compileProbeBody globalOperands supportFnsOperand localVars stmts = do
   localOperands <- Ctx.traverseWithIndex allocateLocal localVars
-  mapM_ (compileStatement globalOperands localOperands) stmts
+  mapM_ (compileStatement globalOperands supportFnsOperand localOperands) stmts
   sendStatement globalOperands supportFnsOperand
   -- IRB.retVoid
   
 sendStatement :: GlobalStore -> ProbeSupportFunctions -> IRB.IRBuilderT (Builder globals) ()
 sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunctions) = do
-  fn <- IRB.load probeSupportFunctions sendFnIndex
+  fnAddr <- IRB.gep probeSupportFunctions [IRB.int32 sendFnIndex]
+  fn <- IRB.load fnAddr 0
   castedFn <- IRB.bitcast fn (pointerType sendFnType)
   gStore <- IRB.load globalStore 0
   castedGlobalStore <- IRB.bitcast gStore (pointerType IRT.i8)
   globalsSize <- fromIntegral <$> calcGlobalsSize
   let operands = [(IRBC.int64 fdToUse, []), (castedGlobalStore, []), (IRBC.int64 globalsSize, [])]
   CMS.void $ IRB.call castedFn operands
-  return ()
   where
     fdToUse = 1 -- STDOUT
     sendFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Send

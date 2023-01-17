@@ -22,6 +22,7 @@ library
                        MCTrace.Arch.X86
                        MCTrace.Arch.X86.Providers
                        MCTrace.Arch.X86.Setup
+                       MCTrace.Builtins
                        MCTrace.Codegen
                        MCTrace.Codegen.LLVM
                        MCTrace.Exceptions
