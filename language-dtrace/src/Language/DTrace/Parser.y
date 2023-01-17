@@ -9,7 +9,7 @@ import qualified Control.Monad.Catch.Pure as CMC
 import qualified Control.Monad.State.Strict as CMS
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
-import           Data.Maybe ( fromMaybe )
+import           Data.Maybe ( fromMaybe, maybe )
 import qualified Data.Text as T
 import           Numeric.Natural ( Natural )
 
@@ -159,7 +159,7 @@ Arguments : ReverseArguments { reverse $1 }
 
 Factor :: { LDLW.Located DS.Expr }
 Factor : Literal { $1 }
-       | IDENTIFIER {% mkE [fst $1] (DS.VarRef (snd $1)) }
+       | IDENTIFIER {% mkE [fst $1] (identifierToVar (snd $1)) }
        | LPAREN Expr RPAREN { $2 }
        | IDENTIFIER LPAREN Arguments RPAREN {% mkE [fst $1, $4] (DS.Call (snd $1) $3) }
        | THIS {% mkE [$1] DS.This }
@@ -319,6 +319,16 @@ identPos l =
   case LDLW.lexemeToken l of
     DT.IDENT t -> Just (l, t)
     _ -> Nothing
+
+-- Identify built-in variables
+matchBuiltinVar :: T.Text -> Maybe DS.Builtin
+matchBuiltinVar t = case T.unpack t of
+  "timestamp" -> Just DS.Timestamp
+  _ -> Nothing
+
+-- Identifier to the variable
+identifierToVar :: T.Text -> DS.App (LDLW.Located DS.Expr)
+identifierToVar t = maybe (DS.VarRef t) DS.BuiltinVarRef (matchBuiltinVar t)
 
 lexer :: (LDLW.Lexeme DT.Token -> DM.ParseM a)
        -> DM.ParseM a

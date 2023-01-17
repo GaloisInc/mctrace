@@ -9,6 +9,7 @@ module Language.DTrace.Syntax.Typed (
   , FloatType
   , SinglePrec
   , DoublePrec
+  , Builtin(..)
   , BVType
   , BoolType
   , StringType
@@ -43,6 +44,7 @@ import           Numeric.Natural ( Natural )
 
 import qualified Language.DTrace.ProbeDescription as LDP
 import qualified Language.DTrace.Token as DT
+import           Language.DTrace.Syntax.Untyped ( Builtin(..) )
 
 data FloatPrecision where
   SinglePrec :: FloatPrecision
@@ -96,6 +98,7 @@ deriving instance Show (Repr tp)
 data Reg globals locals (tp :: Type) where
   LocalReg :: Ctx.Index locals tp -> Reg globals locals tp
   GlobalVar :: Ctx.Index globals tp -> Reg globals locals tp
+  BuiltinVar :: Builtin -> Repr tp -> Reg globals locals tp
 
 newtype Expr globals locals (tp :: Type) = Expr { exprApp :: App (Reg globals locals) tp }
 

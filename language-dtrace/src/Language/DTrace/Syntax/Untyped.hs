@@ -5,6 +5,7 @@
 module Language.DTrace.Syntax.Untyped (
     Type(..)
   , App(..)
+  , Builtin(..)
   , Expr(..)
   , Stmt(..)
   , Probe(..)
@@ -53,6 +54,7 @@ data App f where
   LitDouble :: T.Text -> Double -> App f
   LitFloat :: T.Text -> Float -> App f
   VarRef :: T.Text -> App f
+  BuiltinVarRef :: Builtin -> App f
   FieldRef :: f -> T.Text -> App f
 
   Cast :: Located Type -> f -> App f
@@ -93,6 +95,9 @@ deriving instance (Show f) => Show (App f)
 deriving instance F.Foldable App
 deriving instance Functor App
 
+data Builtin = Timestamp
+  deriving (Eq, Ord, Show)  
+
 newtype Expr = Expr { exprApp :: App (Located Expr) }
   deriving (Show)
 
@@ -128,6 +133,7 @@ traverseExpr f app =
     LitDouble t d -> pure (LitDouble t d)
     LitFloat t fl -> pure (LitFloat t fl)
     VarRef t -> pure (VarRef t)
+    BuiltinVarRef t -> pure (BuiltinVarRef t)
     FieldRef e t -> FieldRef <$> f e <*> pure t
 
     Cast t e -> Cast t <$> f e

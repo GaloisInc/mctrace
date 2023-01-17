@@ -11,6 +11,7 @@ module Language.DTrace.TypeCheck (
     typeCheck
   , TypeErrorMessage(..)
   , TypeError(..)
+  , SU.Builtin(..)
   , ppTypeError
   , ppTypeErrorMessage
   ) where
@@ -205,6 +206,9 @@ typeOfExpr e =
     SU.BVLshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
     SU.BVAshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
 
+typeOfBuiltin :: SU.Builtin -> Some ST.Repr
+typeOfBuiltin SU.Timestamp = Some (ST.BVRepr n64)
+
 -- | Return true if the given variable name is defined in the global state
 --
 -- This is pure to support use in pattern guards
@@ -386,6 +390,9 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
     SU.VarRef varName
       | Just (Some globalIdx) <- Map.lookup varName (globalMap s0) ->
         k s0 (ST.GlobalVar globalIdx)
+    SU.BuiltinVarRef builtin
+      | Some ty <- typeOfBuiltin builtin ->
+        k s0 (ST.BuiltinVar builtin ty)
     SU.LitInt fmt n
       | not (inRangeSigned n32 n) -> onError ex0 (SignedLiteralOutOfRange n32 n)
       | otherwise -> withFreshLocal s0 (ST.BVRepr n32) $ \s1 idx ->
@@ -464,12 +471,14 @@ extendReg r =
   case r of
     ST.LocalReg localIdx -> ST.LocalReg (Ctx.extendIndex localIdx)
     ST.GlobalVar globalIdx -> ST.GlobalVar globalIdx
+    ST.BuiltinVar builtin t -> ST.BuiltinVar builtin t
 
 regType :: PState globals locals -> ST.Reg globals locals tp -> ST.Repr tp
 regType s r =
   case r of
     ST.LocalReg localIdx -> ST.localVarRepr (localVars s Ctx.! localIdx)
     ST.GlobalVar globalIdx -> ST.globalVarRepr (globalVars s Ctx.! globalIdx)
+    ST.BuiltinVar _ t -> t
 
 translateStatement :: [LDL.Located SU.Stmt] -> TC () -> TC () -> TC ()
 translateStatement [] _exitEarly k = k
