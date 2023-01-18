@@ -58,3 +58,21 @@ void* alloc_memory(size_t sz, char* file) {
     
     return res;
 }
+
+uint64_t timestamp() {
+    struct timespec ts ;
+    //void* pts = 0;
+
+    __asm__ __volatile__(
+    "movq $0, %%rdi;"
+    //"movq %[pts], %%rsi;"
+    "lea %[ts], %%rsi;"
+    "movq $228, %%rax;"
+    "syscall;"
+    :
+    : [ts] "g" (ts)
+    : "rdi", "rsi", "rax"
+    );
+
+    return ts.tv_sec * 1000000000 + ts.tv_nsec;
+} 
