@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TupleSections #-}
 -- | Definitions of probe providers for x86_64
 --
 -- Note that the entry probes could fire *before* the syscall or *during* the
@@ -15,7 +16,7 @@
 -- As a disadvantage, it does mean that indirect calls to functions will likely
 -- not be instrumented.
 module MCTrace.Arch.X86.Providers (
-  providers
+  matchProbes
   ) where
 
 import           Control.Applicative ( (<|>) )
@@ -26,6 +27,7 @@ import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe )
 import qualified Data.Text as T
+import qualified Debug.Trace as Trace
 
 import qualified Flexdis86 as F86
 import qualified Prettyprinter as PP
@@ -76,9 +78,8 @@ callProbe
   -- ^ The symbolic address of the injected probe function
   -> [R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)]
 callProbe locationAnalysis repr@RX.X86Repr probeAddr =
-  [ RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg F86.RDI]
-  , RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg F86.RSI]
-  , RX.annotateInstrWith addMemAddr $
+  generatePushes ++
+  [ RX.annotateInstrWith addMemAddr $
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
@@ -88,10 +89,12 @@ callProbe locationAnalysis repr@RX.X86Repr probeAddr =
                               ]                              
   , RX.annotateInstrWith addJumpTarget $
       RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
-  , RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg F86.RSI]
-  , RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg F86.RDI]
   ]
+  ++ generatePops
   where
+    argRegs = [F86.RDI, F86.RSI, F86.RDX, F86.RCX, F86.R8, F86.R9]
+    generatePushes = map (\r -> RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg r]) argRegs
+    generatePops = map (\r -> RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg r]) (reverse argRegs)
     addJumpTarget (RX.AnnotatedOperand v _) =
       case v of
         (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation probeAddr)
@@ -179,7 +182,25 @@ matcherExit providerName symNames locationAnalysis symBlock = do
       -- of whether it is at entry or exit. This is likely to change in the future. So, it
       -- may be good to have a separate version of `callProbe` for exit probes.
       let callSequence = concatMap (callProbe locationAnalysis irep) probeSymAddrs
-      in insns <> DLN.fromList callSequence
+          term DLN.:| rest = insns
+      in Trace.traceShow providerName $ term DLN.:| (rest <> callSequence)
+
+matchProbes :: MA.ProbeLocationAnalysisResult globals RX.X86_64
+            -> R.SymbolicBlock RX.X86_64
+            -> [MP.ProbeInserter RX.X86_64]
+matchProbes probeLocations symBlock = do
+  let probeInserterPairs = mapMaybe (\p -> (p, ) <$> MP.providerMatcher p probeLocations symBlock) providers
+  map snd (reorder probeInserterPairs)
+  where
+    -- FIXME: The precise ordering needs more thought and especially how it interacts
+    -- with the insertion process in `rewrite`
+    -- Also using names like "entry" and "return" in this function is likely
+    -- error prone. Consider another classification method
+    reorder probeInserterPairs = 
+      let entryProbes = filter (\(p, _) -> probeName p == T.pack "entry") probeInserterPairs
+          exitProbes = filter (\(p, _) -> probeName p == T.pack "return") probeInserterPairs
+      in entryProbes ++ exitProbes
+    probeName p =  LD.probeName (MP.providerName p)
 
 -- | A probe that fires at the entry to `read` (the user-level wrapper around
 -- the syscall, provided by libc)
@@ -250,9 +271,25 @@ readReturnSyscallProvider =
     desc = PP.hsep [ PP.pretty "Probe fires at the return from `read` system calls"
                    ]
 
+writeReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+writeReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["write", "write@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "write"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `write` system calls"
+                   ]
+
 providers :: [MP.ProbeProvider globals RX.X86_64]
 providers = [ readEntrySyscallProvider
             , readReturnSyscallProvider
             , writeEntrySyscallProvider
+            , writeReturnSyscallProvider
             , openEntrySyscallProvider
             ]

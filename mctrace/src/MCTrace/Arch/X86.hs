@@ -202,11 +202,11 @@ rewrite
   -> R.RewriteM MA.LogEvent RX.X86_64 (Maybe (R.ModifiedInstructions RX.X86_64))
 rewrite _probeIndex _env probeLocations _ symBlock =
   R.withSymbolicInstructions symBlock $ \irepr insns -> do
-    let probeInserters = mapMaybe (\p -> MP.providerMatcher p probeLocations symBlock) MAP.providers
+    let probeInserters = MAP.matchProbes probeLocations symBlock
     case probeInserters of
       [] -> return Nothing
       _ -> do
-          let insns' = foldr (\p is -> MP.insertProbe p irepr is) insns probeInserters
+          let insns' = foldl (\is p -> MP.insertProbe p irepr is) insns probeInserters
           return (Just (R.ModifiedInstructions irepr insns'))
 
 x86Rewriter
