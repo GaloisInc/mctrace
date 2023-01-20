@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ int main() {
     
     sleep(1);
     
-    fd = open(target_file, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+    fd = open(target_file, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);    
     write(fd, buffer, BUF_SIZE);
     close(fd);
   }
