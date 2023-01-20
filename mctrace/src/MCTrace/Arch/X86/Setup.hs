@@ -8,7 +8,6 @@ import qualified Data.ByteString.UTF8 as DBU
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
-import           Data.Maybe ( fromJust )
 import           Data.Word ( Word32 )
 
 import qualified Flexdis86 as F86
@@ -93,7 +92,7 @@ initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFu
           index = probeSupportFunctionIndexMap Map.! fn
       in [ RX.annotateInstrWith (addSupportFnAddr symAddr) $ RX.makeInstr repr "lea" 
            [ F86.QWordReg F86.R9
-           , F86.VoidMem (F86.Addr_64 F86.DS (Just F86.RDI) Nothing (F86.Disp32 (F86.Imm32Concrete 0)))
+           , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0xa)))
            ]
          , i $ RX.makeInstr repr "mov" 
            [ F86.Mem64 (F86.Addr_64 F86.DS (Just F86.RDI) Nothing (F86.Disp32 (F86.Imm32Concrete (displacement index))))
