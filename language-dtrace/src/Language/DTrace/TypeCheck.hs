@@ -208,6 +208,7 @@ typeOfExpr e =
 
 typeOfBuiltin :: SU.Builtin -> Some ST.Repr
 typeOfBuiltin SU.Timestamp = Some (ST.BVRepr n64)
+typeOfBuiltin SU.UCaller = Some (ST.BVRepr n64) -- FIXME: I don't think this can always be right
 
 -- | Return true if the given variable name is defined in the global state
 --

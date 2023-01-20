@@ -96,6 +96,7 @@ deriving instance F.Foldable App
 deriving instance Functor App
 
 data Builtin = Timestamp
+             | UCaller
   deriving (Eq, Ord, Show)  
 
 newtype Expr = Expr { exprApp :: App (Located Expr) }

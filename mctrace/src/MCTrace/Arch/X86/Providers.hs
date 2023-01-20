@@ -86,7 +86,11 @@ callProbe locationAnalysis repr@RX.X86Repr probeAddr =
   , RX.annotateInstrWith addProbeSupportFnsAddr $
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
-                              ]                              
+                              ]  
+  , RX.noAddr $ 
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RDX
+                              , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
+                              ]                                
   , RX.annotateInstrWith addJumpTarget $
       RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
   ]

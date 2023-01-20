@@ -17,6 +17,7 @@ import qualified MCTrace.Runtime as RT
 
 data BuiltinVarCompilerArgs = 
   BuiltinVarCompilerArgs { supportFunctions :: IR.Operand
+                         , uCallerArg :: IR.Operand
                          , extraArg :: Maybe IR.Operand
                          }
 
@@ -32,7 +33,8 @@ type BuiltinVarCompilerMap = Map.Map ST.Builtin BuiltinVarCompiler
 
 builtinVarCompilers :: Map.Map ST.Builtin BuiltinVarCompiler
 builtinVarCompilers = Map.fromList [ (ST.Timestamp, timestampBuiltinCompiler)
-                                ]
+                                   , (ST.UCaller, uCallerBuiltinCompiler)
+                                   ]
 
 
 timestampBuiltinCompiler :: BuiltinVarCompiler
@@ -49,4 +51,15 @@ timestampBuiltinCompiler = BuiltinVarCompiler { compile = compiler
         IRB.call castedFn []
     timestampFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Timestamp
     timestampFnType = IRT.FunctionType IRT.i64 [] False   
-      
+
+uCallerBuiltinCompiler :: BuiltinVarCompiler
+uCallerBuiltinCompiler = BuiltinVarCompiler { compile = compiler 
+                                            , argType = Nothing
+                                            , requireRewrite = False
+                                            }
+  where
+    compiler :: (IRB.MonadModuleBuilder m, IRB.MonadIRBuilder m) => BuiltinVarCompilerArgs -> m IR.Operand
+    compiler BuiltinVarCompilerArgs { uCallerArg = oper } = do
+      -- FIXME: Currently our DTrace LLVM compiler does not support
+      --        pointer types. So cast to a integer and go with it
+      IRB.ptrtoint oper (IRT.IntegerType 64)

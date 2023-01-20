@@ -324,6 +324,7 @@ identPos l =
 matchBuiltinVar :: T.Text -> Maybe DS.Builtin
 matchBuiltinVar t = case T.unpack t of
   "timestamp" -> Just DS.Timestamp
+  "ucaller" -> Just DS.UCaller
   _ -> Nothing
 
 -- Identifier to the variable
