@@ -96,7 +96,9 @@ callProbe locationAnalysis repr@RX.X86Repr probeAddr =
   ]
   ++ generatePops
   where
-    argRegs = [F86.RDI, F86.RSI, F86.RDX, F86.RCX, F86.R8, F86.R9]
+    -- CHECK: We are pushing an odd number of 8 byte registers here. Will this screw
+    -- up stack alignment requirements (16 byte aligned) of X86_64?
+    argRegs = [F86.RDI, F86.RSI, F86.RDX, F86.RCX, F86.R8, F86.R9, F86.RAX]
     generatePushes = map (\r -> RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg r]) argRegs
     generatePops = map (\r -> RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg r]) (reverse argRegs)
     addJumpTarget (RX.AnnotatedOperand v _) =
