@@ -292,10 +292,186 @@ writeReturnSyscallProvider =
     desc = PP.hsep [ PP.pretty "Probe fires at the return from `write` system calls"
                    ]
 
+openReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+openReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["open", "open@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "open"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `open` system calls"
+                   ]
+
+fopenEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+fopenEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherEntry name ["fopen", "fopen@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "fopen"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `fopen` system calls"
+                   ]
+
+fopenReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+fopenReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["fopen", "fopen@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "fopen"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `fopen` system calls"
+                   ]
+
+fcloseEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+fcloseEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherEntry name ["fclose", "fclose@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "fclose"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `fclose` system calls"
+                   ]
+
+fcloseReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+fcloseReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["fclose", "fclose@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "fclose"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `fclose` system calls"
+                   ]
+
+callocEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+callocEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherEntry name ["calloc", "calloc@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "calloc"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `calloc` system calls"
+                   ]
+
+callocReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+callocReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["calloc", "calloc@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "calloc"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `calloc` system calls"
+                   ]
+
+freeEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+freeEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherEntry name ["free", "free@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "free"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `free` system calls"
+                   ]
+
+freeReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+freeReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["free", "free@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "free"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `free` system calls"
+                   ]
+
+mallocEntrySyscallProvider :: MP.ProbeProvider globals RX.X86_64
+mallocEntrySyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherEntry name ["malloc", "malloc@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "malloc"
+                               , LD.probeName = T.pack "entry"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the entry to `malloc` system calls"
+                   ]
+
+mallocReturnSyscallProvider :: MP.ProbeProvider globals RX.X86_64
+mallocReturnSyscallProvider =
+  MP.ProbeProvider { MP.providerName = name
+                   , MP.providerDescription = desc
+                   , MP.providerMatcher = matcherExit name ["malloc", "malloc@plt"]
+                   }
+  where
+    name = LD.ProbeDescription { LD.probeProvider = T.pack "mctrace"
+                               , LD.probeModule = T.pack "syscall"
+                               , LD.probeFunction = T.pack "malloc"
+                               , LD.probeName = T.pack "return"
+                               }
+    desc = PP.hsep [ PP.pretty "Probe fires at the return from `malloc` system calls"
+                   ]
+
 providers :: [MP.ProbeProvider globals RX.X86_64]
 providers = [ readEntrySyscallProvider
             , readReturnSyscallProvider
             , writeEntrySyscallProvider
             , writeReturnSyscallProvider
             , openEntrySyscallProvider
+            , openReturnSyscallProvider
+            , fopenEntrySyscallProvider
+            , fopenReturnSyscallProvider
+            , fcloseEntrySyscallProvider
+            , fcloseReturnSyscallProvider
+            , callocEntrySyscallProvider
+            , callocReturnSyscallProvider
+            , mallocEntrySyscallProvider
+            , mallocReturnSyscallProvider
+            , freeEntrySyscallProvider
+            , freeReturnSyscallProvider
             ]
