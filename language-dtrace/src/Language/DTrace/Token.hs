@@ -20,6 +20,7 @@ data Token = STRINGLIT T.Text
            | FLOATLIT T.Text Float
            | DOUBLELIT T.Text Double
            | IDENT T.Text
+           | PATTERN T.Text
            | CHAR
            | SHORT
            | INT

@@ -101,6 +101,8 @@ tokens :-
   $digit+ \. $digit+ f { readToken readFloat (uncurry DT.FLOATLIT) }
 
   $alpha [$alpha $digit \_]* { readToken (\t -> return (t, mempty)) DT.IDENT }
+  
+  [$alpha $digit \_ \? \* \[ \] \!]+ { readToken (\t -> return (t, mempty)) DT.PATTERN }
 
   [\/][\/]           { pushStartCode comment >> skip }
   <comment> .+ ;

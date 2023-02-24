@@ -42,7 +42,9 @@ library
                        bv-sized >= 1 && < 1.1,
                        prettyprinter >= 1.7 && < 1.8,
                        text >= 1 && < 2,
-                       utf8-string >= 1 && < 2
+                       utf8-string >= 1 && < 2,
+                       regex-base,
+                       regex-tdfa
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat

@@ -39,6 +39,7 @@ import qualified Language.DTrace.Token as DT
   ULONGLONGLIT   { (ulongLongLitPos -> Just $$) }
   STRINGLIT { (stringLitPos -> Just $$) }
   IDENTIFIER { (identPos -> Just $$) }
+  PATTERN { (patternPos -> Just $$) }
   INT { LDLW.Lexeme _ DT.INT _ }
   FLOAT { LDLW.Lexeme _ DT.FLOAT _ }
   DOUBLE { LDLW.Lexeme _ DT.DOUBLE _ }
@@ -200,12 +201,11 @@ ReverseStmts :                       { [] }
 Stmts :: { [LDLW.Located DS.Stmt] }
 Stmts : ReverseStmts { reverse $1 }
 
--- FIXME: This needs to account for patterns
---
 -- FIXME: These are actually a superset of identifiers that can contain dashes
 MaybeProbeComponent :: { Maybe (LDLW.Lexeme DT.Token, T.Text) }
 MaybeProbeComponent : IDENTIFIER { Just $1 }
-                    |                { Nothing }
+                    | PATTERN { Just $1 }
+                    | { Nothing }
 
 ProbeDescription :: { LDLW.Located LDP.ProbeDescription }
 ProbeDescription : MaybeProbeComponent COLON MaybeProbeComponent COLON MaybeProbeComponent COLON MaybeProbeComponent
@@ -318,6 +318,12 @@ identPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, T.Text)
 identPos l =
   case LDLW.lexemeToken l of
     DT.IDENT t -> Just (l, t)
+    _ -> Nothing
+
+patternPos :: LDLW.Lexeme DT.Token -> Maybe (LDLW.Lexeme DT.Token, T.Text)
+patternPos l =
+  case LDLW.lexemeToken l of
+    DT.PATTERN t -> Just (l, t)
     _ -> Nothing
 
 -- Identify built-in variables
