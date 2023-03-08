@@ -29,6 +29,7 @@ packages: language-dtrace
           submodules/macaw-loader/macaw-loader-ppc
           submodules/renovate/renovate
           submodules/renovate/renovate-x86
+          submodules/renovate/renovate-ppc
           submodules/semmc/semmc
           submodules/semmc/semmc-synthesis
           submodules/semmc/semmc-learning
