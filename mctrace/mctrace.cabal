@@ -22,9 +22,6 @@ library
                        MCTrace.Arch.X86
                        MCTrace.Arch.X86.Providers
                        MCTrace.Arch.X86.Setup
-                       MCTrace.Arch.PPC
-                       MCTrace.Arch.PPC.Providers
-                       MCTrace.Arch.PPC.Setup
                        MCTrace.Builtins
                        MCTrace.Codegen
                        MCTrace.Codegen.LLVM
