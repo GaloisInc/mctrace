@@ -260,9 +260,13 @@ allocateGlobal _idx _var = do
 -- names assigned to each generated probe function.
 data CompiledProbes where
   CompiledProbes :: Ctx.Assignment ST.GlobalVariable globals
+                 -- ^ global variable definitions
                  -> Ctx.Assignment (C.Const Word32) globals
+                 -- ^ global variable offsets
                  -> [(ST.Probe globals, String)]
+                 -- ^ probe function symbol names
                  -> IR.Module
+                 -- ^ the resulting module
                  -> CompiledProbes
 
 probeName :: Int -> String
