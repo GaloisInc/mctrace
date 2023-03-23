@@ -62,18 +62,19 @@ MCTrace binaries can be built in two ways: either locally, given a Haskell build
 
 ** Local Build Instructions
 
-Assuming you have a Haskell compiler installed (GHC >= 8.6 and < 9), the following instructions will build the MCTrace tool:
+The development environment setup and build processes are automated. The
+automation supports Ubuntu 20.04:
 
 #+BEGIN_SRC
 
-git submodule update --init
-ln -s cabal.project.local cabal.project
-cabal configure pkg:mctrace
-cabal build pkg:mctrace
+./dev_setup.sh
+./build.sh
 
 #+END_SRC
 
-Note that ~mctrace~ currently requires LLVM 12 to be installed and accessible for code generation.
+Note that ~mctrace~ currently requires LLVM 12 to be installed and
+accessible for code generation. The automation installs the required
+version of LLVM.
 
 ** Docker-based Build Instructions and Usage
 
