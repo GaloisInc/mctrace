@@ -31,6 +31,10 @@ CABAL_VERSION=3.6.2.0
 # that we're using for development.
 FREEZE_FILE=cabal.project.freeze.ghc-8.10.7
 
+# Musl cross-compilation tool repo and checkout ref
+MUSL_CROSS_MAKE_REPO=https://github.com/richfelker/musl-cross-make
+MUSL_CROSS_MAKE_REF=fe915821b652a7fa37b34a596f47d8e20bc72338
+
 # Requires: LOG set to log file path.
 function logged {
     if ! [ -z "$LOG" ]
@@ -123,11 +127,33 @@ function update_submodules {
     logged git submodule update --init
 }
 
+function build_musl_compiler {
+    cd $HERE
+
+    if [ ! -f "$HERE/musl-gcc/output/bin/powerpc-linux-muslsf-gcc" ]
+    then
+        notice "Cloning and building PowerPC GCC cross compiler (this will take a while)"
+
+        logged git clone $MUSL_CROSS_MAKE_REPO musl-gcc
+        cd musl-gcc
+        logged git checkout $MUSL_CROSS_MAKE_REF
+
+        logged cp -f config.mak.dist config.mak
+        echo "TARGET = powerpc-linux-muslsf" >> config.mak
+
+        logged make
+        logged make install
+    else
+        notice "PowerPC GCC cross compiler already built, skipping"
+    fi
+}
+
 notice "Starting setup, logging to $LOG."
 
 install_system_packages
 install_ghcup
 symlink_cabal_config
 update_submodules
+build_musl_compiler
 
 notice "Done."
