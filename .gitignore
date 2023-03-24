@@ -5,3 +5,4 @@ dev_setup.log
 cabal.project
 cabal.project.freeze
 .*.swp
+musl-gcc
