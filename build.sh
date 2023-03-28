@@ -18,5 +18,5 @@ powerpc-linux-muslsf-gcc -o runtime.o -c runtime.c
 
 # Build mctrace itself
 cd $HERE
-cabal configure pkg:mctrace
-cabal build :pkg:mctrace
+cabal configure pkg:mctrace --enable-tests
+cabal build :pkg:mctrace --enable-tests
