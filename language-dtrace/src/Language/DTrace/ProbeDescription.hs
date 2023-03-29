@@ -1,6 +1,6 @@
 module Language.DTrace.ProbeDescription (
     ProbeDescription(..)
-  , matchWithPattern  
+  , matchWithPattern
   , probeDescriptionMatches
   ) where
 
@@ -44,7 +44,7 @@ componentMatches f pd1 pd2 = matchWithPattern (f pd1) (f pd2)
 matchWithPattern :: T.Text -> T.Text -> Bool
 matchWithPattern pat t | T.null pat = True
                        | otherwise  = t RE.=~ convertToRegEx pat
-  
+
 convertToRegEx :: T.Text -> T.Text
 convertToRegEx pat = T.pack ('^' : convertToRegexImpl (T.unpack pat) ++ "$")
   where
