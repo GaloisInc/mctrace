@@ -70,7 +70,8 @@ function install_system_packages {
         llvm-12-dev \
         llvm-12-runtime \
         libgmp-dev \
-        zlib1g-dev
+        zlib1g-dev \
+        qemu-system-ppc
 }
 
 function install_ghcup {
