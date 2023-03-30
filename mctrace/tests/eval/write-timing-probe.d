@@ -10,6 +10,6 @@ long write_elapsed;
 }
 
 ::write:return {
-  write_return = 1;
   write_elapsed = timestamp - write_ts;
+  write_ts = timestamp ;
 }
