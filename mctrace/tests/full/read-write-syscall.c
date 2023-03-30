@@ -16,7 +16,7 @@ int main() {
   }
   close(fd);
 
-  fd = open("/dev/null", 0);
+  fd = open("/dev/null", 1);
   for(int i = 0; i < 7; i++) {
       write(fd, buffer, g);
   }

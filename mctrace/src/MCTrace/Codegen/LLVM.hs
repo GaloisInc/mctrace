@@ -27,6 +27,7 @@ import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.String ( fromString )
 import           Data.Word ( Word32 )
+import qualified Debug.Trace as Trace
 import qualified LLVM.AST as IR
 import qualified LLVM.AST.AddrSpace as IRA
 import qualified LLVM.AST.Constant as IRC
@@ -203,12 +204,12 @@ sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunct
   gStore <- IRB.load globalStore 0
   castedGlobalStore <- IRB.bitcast gStore (pointerType IRT.i8)
   globalsSize <- fromIntegral <$> calcGlobalsSize
-  let operands = [(IRBC.int64 fdToUse, []), (castedGlobalStore, []), (IRBC.int64 globalsSize, [])]
+  let operands = [(IRBC.int32 fdToUse, []), (castedGlobalStore, []), (IRBC.int32 globalsSize, [])]
   CMS.void $ IRB.call castedFn operands
   where
     fdToUse = 1 -- STDOUT
     sendFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Send
-    sendFnType = IRT.FunctionType IRT.VoidType [IRT.i64, pointerType IRT.i8, IRT.i64] False    
+    sendFnType = IRT.FunctionType IRT.VoidType [IRT.i32, pointerType IRT.i8, IRT.i32] False
     calcGlobalsSize :: IRB.IRBuilderT (Builder globals) Word32
     calcGlobalsSize = do
       gvs <- CMT.lift (CMR.asks globalVars)
