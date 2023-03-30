@@ -150,6 +150,12 @@ function build_musl_compiler {
 }
 
 function install_docker {
+    if [ ! -z "$SKIP_DOCKER" ]
+    then
+        notice "Running within Docker, so skipping docker installation"
+        return 0
+    fi
+
     if ! in_path docker
     then
         notice "Installing Docker"
