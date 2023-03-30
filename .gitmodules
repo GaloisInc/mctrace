@@ -13,6 +13,7 @@
 [submodule "submodules/renovate"]
 	path = submodules/renovate
 	url = git@github.com:GaloisInc/renovate-pate.git
+	branch = mctrace-patches
 [submodule "submodules/elf-edit"]
 	path = submodules/elf-edit
 	url = git@github.com:GaloisInc/elf-edit.git
