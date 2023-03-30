@@ -149,6 +149,43 @@ function build_musl_compiler {
     fi
 }
 
+function install_docker {
+    if ! in_path docker
+    then
+        notice "Installing Docker"
+
+        local docker_sources_list=/etc/apt/sources.list.d/docker.list
+
+        if [ ! -f "$docker_sources_list" ]
+        then
+            notice "Setting up Docker apt repository"
+
+            logged sudo mkdir -m 0755 -p /etc/apt/keyrings
+            cd /tmp
+            logged wget https://download.docker.com/linux/ubuntu/gpg
+            logged sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg < ./gpg
+
+            codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+            arch=$(dpkg --print-architecture)
+            repoline="deb [arch="$arch" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $codename stable"
+
+            echo $repoline | sudo tee $docker_sources_list > /dev/null
+
+            logged sudo apt-get update
+        else
+            notice "Docker apt repository already set up, skipping"
+        fi
+
+        notice "Installing Docker packages"
+
+        logged sudo apt-get install --yes docker-ce docker-ce-cli
+
+        logged /etc/init.d/docker restart
+    else
+        notice "Docker already installed, skipping"
+    fi
+}
+
 notice "Starting setup, logging to $LOG."
 
 install_system_packages
@@ -156,5 +193,6 @@ install_ghcup
 symlink_cabal_config
 update_submodules
 build_musl_compiler
+install_docker
 
 notice "Done."
