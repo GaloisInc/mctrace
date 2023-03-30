@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-void send(int fd, void* str, size_t sz) {
+void send(uint32_t fd, void* str, uint32_t sz) {
     ssize_t ret = 0;
     __asm__ __volatile__(
         "movq %[fd], %%rdi;"
@@ -18,7 +18,7 @@ void send(int fd, void* str, size_t sz) {
         "movq $1, %%rax;"
         "syscall;"
         : "=g" (ret)
-        : [fd] "g" (fd), [str] "g" (str), [sz] "g" (sz)
+        : [fd] "g" ((uint64_t)fd), [str] "g" (str), [sz] "g" ((size_t)sz)
         : "rdi", "rsi", "rdx", "rax"
     );
 }
