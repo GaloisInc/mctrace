@@ -301,7 +301,14 @@ withLLVMOptions (DE.SomeElf ehi) k =
       let features = Map.empty
       LLT.withTargetOptions $ \targetOpts -> do
         LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
-    m -> X.throwIO (ME.UnsupportedArchitecture m)
+    DE.EM_PPC -> do
+      let triple = fromString "ppc32-unknown-linux"
+      (t, _) <- LLT.lookupTarget Nothing triple
+      let cpu = fromString ""
+      let features = Map.empty
+      LLT.withTargetOptions $ \targetOpts -> do
+        LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
+    m -> Trace.trace "WTF" $ X.throwIO (ME.UnsupportedArchitecture m)
 
 
 {- Note [CodeGen Strategy]
