@@ -3,3 +3,5 @@ read-syscall
 read-write-syscall
 slow-read-write
 *.inst
+*-X86
+*-PPC

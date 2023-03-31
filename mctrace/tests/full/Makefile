@@ -1,10 +1,10 @@
 
 ARCH ?= X86
 
-PROGRAMS = read-syscall \
-	   read-write-syscall \
-	   slow-read-write \
-	   alloc-dealloc-fread-fwrite
+PROGRAMS = read-syscall-$(ARCH) \
+	   read-write-syscall-$(ARCH) \
+	   slow-read-write-$(ARCH) \
+	   alloc-dealloc-fread-fwrite-$(ARCH)
 
 ifeq ($(ARCH),PPC)
     CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
@@ -16,17 +16,17 @@ endif
 
 all: $(PROGRAMS) instrument_tests
 
-read-syscall: read-syscall.c
-	$(CC) -static read-syscall.c -o read-syscall
+read-syscall-$(ARCH): read-syscall.c
+	$(CC) -static read-syscall.c -o read-syscall-$(ARCH)
 	
-read-write-syscall: read-write-syscall.c
-	$(CC) -static read-write-syscall.c -o read-write-syscall
+read-write-syscall-$(ARCH): read-write-syscall.c
+	$(CC) -static read-write-syscall.c -o read-write-syscall-$(ARCH)
 
-slow-read-write: slow-read-write.c
-	$(CC) -static slow-read-write.c -o slow-read-write
+slow-read-write-$(ARCH): slow-read-write.c
+	$(CC) -static slow-read-write.c -o slow-read-write-$(ARCH)
 	
-alloc-dealloc-fread-fwrite: alloc-dealloc-fread-fwrite.c
-	$(CC) -static alloc-dealloc-fread-fwrite.c -o alloc-dealloc-fread-fwrite
+alloc-dealloc-fread-fwrite-$(ARCH): alloc-dealloc-fread-fwrite.c
+	$(CC) -static alloc-dealloc-fread-fwrite.c -o alloc-dealloc-fread-fwrite-$(ARCH)
 
 ######################################################################
 # Basic testing of instrumenting each program with various probes
@@ -34,10 +34,10 @@ alloc-dealloc-fread-fwrite: alloc-dealloc-fread-fwrite.c
 
 define do_instrument
     cabal exec mctrace -- instrument \
-	--binary=$2 \
-	--output=$2.$3.inst \
+	--binary=$2-$(ARCH) \
+	--output=$2-$(ARCH).$3.inst \
 	--library=../library/$(ARCH)/runtime.o \
-	--var-mapping=/tmp/$2.$3.inst.json \
+	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
 	--persistence-file=/tmp/telemetry.bin \
 	--script=$1
 endef
@@ -66,4 +66,4 @@ instrument_tests:
 
 clean:
 	find . -name '*.o' -delete
-	rm -f *.inst $(PROGRAMS)
+	rm -f *.inst *-$(ARCH)
