@@ -1,16 +1,32 @@
-all: read-syscall read-write-syscall slow-read-write alloc-dealloc-fread-fwrite instrument_tests
+
+ARCH ?= X86
+
+PROGRAMS = read-syscall \
+	   read-write-syscall \
+	   slow-read-write \
+	   alloc-dealloc-fread-fwrite
+
+ifeq ($(ARCH),PPC)
+    CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
+else ifeq ($(ARCH),X86)
+    CC = musl-gcc
+else
+    $(error $(ARCH) - unknown architecture)
+endif
+
+all: $(PROGRAMS) instrument_tests
 
 read-syscall: read-syscall.c
-	musl-gcc -static read-syscall.c -o read-syscall
+	$(CC) -static read-syscall.c -o read-syscall
 	
 read-write-syscall: read-write-syscall.c
-	musl-gcc -static read-write-syscall.c -o read-write-syscall
+	$(CC) -static read-write-syscall.c -o read-write-syscall
 
 slow-read-write: slow-read-write.c
-	musl-gcc -static slow-read-write.c -o slow-read-write
+	$(CC) -static slow-read-write.c -o slow-read-write
 	
 alloc-dealloc-fread-fwrite: alloc-dealloc-fread-fwrite.c
-	musl-gcc -static alloc-dealloc-fread-fwrite.c -o alloc-dealloc-fread-fwrite
+	$(CC) -static alloc-dealloc-fread-fwrite.c -o alloc-dealloc-fread-fwrite
 
 ######################################################################
 # Basic testing of instrumenting each program with various probes
@@ -20,7 +36,7 @@ define do_instrument
     cabal exec mctrace -- instrument \
 	--binary=$2 \
 	--output=$2.$3.inst \
-	--library=../library/X86/runtime.o \
+	--library=../library/$(ARCH)/runtime.o \
 	--var-mapping=/tmp/$2.$3.inst.json \
 	--persistence-file=/tmp/telemetry.bin \
 	--script=$1
@@ -50,7 +66,4 @@ instrument_tests:
 
 clean:
 	find . -name '*.o' -delete
-	rm read-syscall
-	rm read-write-syscall
-	rm slow-read-write
-	rm alloc-dealloc-fread-fwrite
+	rm -f *.inst $(PROGRAMS)
