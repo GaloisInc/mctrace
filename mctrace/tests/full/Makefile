@@ -1,35 +1,56 @@
-all: x86 ppc32
+all: read-syscall read-write-syscall slow-read-write alloc-dealloc-fread-fwrite instrument_tests
 
-x86: x86-read-syscall x86-read-write-syscall x86-slow-read-write x86-alloc-dealloc-fread-fwrite
+read-syscall: read-syscall.c
+	musl-gcc -static read-syscall.c -o read-syscall
+	
+read-write-syscall: read-write-syscall.c
+	musl-gcc -static read-write-syscall.c -o read-write-syscall
 
-x86-read-syscall: read-syscall.c
-	musl-gcc -static read-syscall.c -o x86-read-syscall
+slow-read-write: slow-read-write.c
+	musl-gcc -static slow-read-write.c -o slow-read-write
 	
-x86-read-write-syscall: read-write-syscall.c
-	musl-gcc -static read-write-syscall.c -o x86-read-write-syscall
+alloc-dealloc-fread-fwrite: alloc-dealloc-fread-fwrite.c
+	musl-gcc -static alloc-dealloc-fread-fwrite.c -o alloc-dealloc-fread-fwrite
 
-x86-slow-read-write: slow-read-write.c
-	musl-gcc -static slow-read-write.c -o x86-slow-read-write
-	
-x86-alloc-dealloc-fread-fwrite: alloc-dealloc-fread-fwrite.c
-	musl-gcc -static alloc-dealloc-fread-fwrite.c -o x86-alloc-dealloc-fread-fwrite
-	
-ppc32: ppc32-read-syscall ppc32-read-write-syscall ppc32-slow-read-write ppc32-alloc-dealloc-fread-fwrite
+######################################################################
+# Basic testing of instrumenting each program with various probes
+######################################################################
 
-ppc32-read-syscall: read-syscall.c
-	powerpc-linux-muslsf-gcc -static read-syscall.c -o ppc32-read-syscall
-	
-ppc32-read-write-syscall: read-write-syscall.c
-	powerpc-linux-muslsf-gcc -static read-write-syscall.c -o ppc32-read-write-syscall
+define do_instrument
+    cabal exec mctrace -- instrument \
+	--binary=$2 \
+	--output=$2.$3.inst \
+	--library=../library/X86/runtime.o \
+	--var-mapping=/tmp/$2.$3.inst.json \
+	--persistence-file=/tmp/telemetry.bin \
+	--script=$1
+endef
 
-ppc32-slow-read-write: slow-read-write.c
-	powerpc-linux-muslsf-gcc -static slow-read-write.c -o ppc32-slow-read-write
-	
-ppc32-alloc-dealloc-fread-fwrite: alloc-dealloc-fread-fwrite.c
-	powerpc-linux-muslsf-gcc -static alloc-dealloc-fread-fwrite.c -o ppc32-alloc-dealloc-fread-fwrite
+instrument_tests:
+	$(call do_instrument,../eval/single-add-probe.d,read-syscall,1)
+	$(call do_instrument,../eval/single-add-probe.d,read-write-syscall,1)
+	$(call do_instrument,../eval/single-add-probe.d,slow-read-write,1)
+
+	$(call do_instrument,../eval/multiple-probe.d,read-syscall,2)
+	$(call do_instrument,../eval/multiple-probe.d,read-write-syscall,2)
+	$(call do_instrument,../eval/multiple-probe.d,slow-read-write,2)
+
+	$(call do_instrument,../eval/entry-exit-probe.d,read-syscall,3)
+	$(call do_instrument,../eval/entry-exit-probe.d,read-write-syscall,3)
+	$(call do_instrument,../eval/entry-exit-probe.d,slow-read-write,3)
+
+	$(call do_instrument,../eval/write-timing-probe.d,read-write-syscall,4)
+	$(call do_instrument,../eval/write-timing-probe.d,slow-read-write,4)
+
+	$(call do_instrument,../eval/fopen-calloc-fclose-probe.d,alloc-dealloc-fread-fwrite,1)
+
+	$(call do_instrument,../eval/graph-probe.d,read-syscall,5)
+	$(call do_instrument,../eval/graph-probe.d,read-write-syscall,5)
+	$(call do_instrument,../eval/graph-probe.d,slow-read-write,5)
 
 clean:
 	find . -name '*.o' -delete
-	rm x86-*
-	rm ppc32-*
-
+	rm read-syscall
+	rm read-write-syscall
+	rm slow-read-write
+	rm alloc-dealloc-fread-fwrite
