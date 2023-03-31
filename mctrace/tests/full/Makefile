@@ -66,4 +66,4 @@ instrument_tests:
 
 clean:
 	find . -name '*.o' -delete
-	rm -f *.inst *-$(ARCH)
+	rm -f *.inst *-X86 *-PPC
