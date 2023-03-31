@@ -27,20 +27,21 @@ void* alloc_memory(size_t sz, char* file) {
     void* res = 0;
     __asm__ __volatile__(
         //Create/Truncate file
-        "movq $2, %%rax;"
-        "movq %[file], %%rdi;"
-        "movq %[open_flags], %%rsi;"
-        "movq %[open_mode], %%rdx;"
-        "syscall;"
-        //Truncate to size (store the returned fd from the previous one though)
-        "push %%rax;"
-        "movq %%rax, %%rdi;"
-        "movq %[sz], %%rsi;"
-        "movq $77, %%rax;"
-        "syscall;"
-        "pop %%rax;"
+        // "movq $2, %%rax;"
+        // "movq %[file], %%rdi;"
+        // "movq %[open_flags], %%rsi;"
+        // "movq %[open_mode], %%rdx;"
+        // "syscall;"
+        // //Truncate to size (store the returned fd from the previous one though)
+        // "push %%rax;"
+        // "movq %%rax, %%rdi;"
+        // "movq %[sz], %%rsi;"
+        // "movq $77, %%rax;"
+        // "syscall;"
+        // "pop %%rax;"
         //Mmap using the file descriptor from above
-        "movq %%rax, %%r8;"
+        //"movq %%rax, %%r8;"
+        "movq $-1, %%r8;"
         "movq $9, %%rax;"
         "movq $0, %%rdi;"
         "movq %[sz], %%rsi;"
@@ -52,7 +53,7 @@ void* alloc_memory(size_t sz, char* file) {
         : [res] "=g" (res)
         : [file] "g" (file), [open_flags] "i" (O_RDWR | O_CREAT | O_TRUNC), 
           [open_mode] "i" (S_IRWXU), [mmap_prot_mode] "i" (PROT_WRITE | PROT_READ),
-          [mmap_flags] "i" (MAP_SHARED), [sz] "g" (sz)
+          [mmap_flags] "i" (MAP_SHARED | MAP_ANONYMOUS), [sz] "g" (sz)
         : "rdi", "rsi", "rdx", "rax", "r8", "r9", "r10"
     );
     
@@ -73,6 +74,5 @@ uint64_t timestamp() {
     : [ts] "g" (ts)
     : "rdi", "rsi", "rax"
     );
-
     return ts.tv_sec * 1000000000 + ts.tv_nsec;
 } 

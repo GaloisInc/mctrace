@@ -12,7 +12,7 @@
 #include <inttypes.h>
 #include <time.h>
 
-void send(int fd, void* str, size_t sz) {
+void send(uint32_t fd, void* str, uint32_t sz) {
     ssize_t ret = 0;
     __asm__ __volatile__(
         "ori %%r3, %[fd], 0;"
@@ -21,7 +21,7 @@ void send(int fd, void* str, size_t sz) {
         "li %%r0, 4;"
         "sc;"
         : "=g" (ret)
-        : [fd] "r" (fd), [str] "r" (str), [sz] "r" (sz)
+        : [fd] "r" (fd), [str] "r" (str), [sz] "r" ((size_t)sz)
         : "r3", "r4", "r5", "r0"
     );
 }
@@ -45,6 +45,18 @@ void* alloc_memory(size_t sz) {
           [sz] "r" (sz)
         : "r0", "r3", "r4", "r5", "r6", "r7", "r8"
     );
+    
+    // ssize_t ret;
+    // __asm__ __volatile__(
+    //     "ori %%r3, %[fd], 0;"
+    //     "ori %%r4, %[str], 0;"
+    //     "ori %%r5, %[sz], 0;"
+    //     "li %%r0, 4;"
+    //     "sc;"
+    //     : "=g" (ret)
+    //     : [fd] "r" (1), [str] "r" ("HELLO"), [sz] "r" (6)
+    //     : "r3", "r4", "r5", "r0"
+    // );
     
     return res;
 }
