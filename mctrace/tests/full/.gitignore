@@ -2,3 +2,4 @@ alloc-dealloc-fread-fwrite
 read-syscall
 read-write-syscall
 slow-read-write
+*.inst
