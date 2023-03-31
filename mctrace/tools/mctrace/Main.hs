@@ -34,15 +34,19 @@ import           Data.Macaw.X86.Symbolic ()
 import qualified Lang.Crucible.FunctionHandle as LCF
 import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
+import qualified Renovate.Arch.PPC as RP
 
 import qualified Language.DTrace.Syntax.Typed as LDT
 import qualified MCTrace.Analysis as MA
-import qualified MCTrace.Arch.X86 as MAX
+import qualified MCTrace.Arch.X86 as MRAX
+import qualified MCTrace.Arch.PPC as MRAP
 import qualified MCTrace.Codegen as MC
 import qualified MCTrace.Codegen.LLVM as MCL
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Loader as ML
 import qualified MCTrace.Panic as MP
+
+import qualified Debug.Trace as Trace
 
 import qualified Options as O
 
@@ -67,7 +71,8 @@ archConfigurations
   -> DE.ElfHeaderInfo n
   -> [(R.Architecture, R.SomeConfig (R.AnalyzeAndRewrite MA.LogEvent) (MA.ProbeLocationAnalysisResult globals))]
 archConfigurations probes library =
-  [ (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr (RX.config (MAX.x86Rewriter probes library)))
+  [ (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr (RX.config (MRAX.x86Rewriter probes library)))
+  , (R.PPC32, R.SomeConfig (PN.knownNat @32) MBL.Elf32Repr (RP.config32 (MRAP.ppcRewriter probes library)))
   ]
 
 saveLLVMDebugInfo
