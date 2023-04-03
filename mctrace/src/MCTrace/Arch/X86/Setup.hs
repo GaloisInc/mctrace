@@ -50,7 +50,7 @@ allocMemory
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 allocMemory repr allocFnSymAddress globalStoreBytes path =
     i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI
-                               , F86.DWordSignedImm (fromIntegral globalStoreBytes) 
+                               , F86.DWordSignedImm (fromIntegral globalStoreBytes)
                                ] ) DLN.:|
   [ i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
                                 , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0xa)))
@@ -64,22 +64,22 @@ allocMemory repr allocFnSymAddress globalStoreBytes path =
     -- This is the offset to the jump over the file path
     --
     -- We add 1 for the NUL terminator
-    jmpOff = length path + 1 
-    addAllocFunAddress (RX.AnnotatedOperand v _) = 
+    jmpOff = length path + 1
+    addAllocFunAddress (RX.AnnotatedOperand v _) =
       case v of
         (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation allocFnSymAddress)
         _ -> RX.AnnotatedOperand v R.NoRelocation
 
-initializeProbeSupportFunArray 
+initializeProbeSupportFunArray
   :: R.InstructionArchRepr RX.X86_64 tp
   -> Word32
-  -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64) 
-  -> R.ConcreteAddress RX.X86_64 
+  -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64)
+  -> R.ConcreteAddress RX.X86_64
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr =
   baseAddrInstr DLN.:| concatMap storeFnAddr probeSupportFunctions
   where
-    baseAddrInstr =  RX.annotateInstrWith annotateRootAddr $ RX.makeInstr repr "lea" 
+    baseAddrInstr =  RX.annotateInstrWith annotateRootAddr $ RX.makeInstr repr "lea"
                      [ F86.QWordReg F86.RDI
                      , F86.VoidMem (F86.IP_Offset_64 F86.DS (F86.Disp32 (F86.Imm32Concrete 0)))
                      ]
@@ -87,14 +87,14 @@ initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFu
       case v of
         (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation probeSupportFunArrayAddr)
         _ -> RX.AnnotatedOperand v R.NoRelocation
-    storeFnAddr fn = 
+    storeFnAddr fn =
       let symAddr = supportFunctions Map.! fn
           index = probeSupportFunctionIndexMap Map.! fn
-      in [ RX.annotateInstrWith (addSupportFnAddr symAddr) $ RX.makeInstr repr "lea" 
+      in [ RX.annotateInstrWith (addSupportFnAddr symAddr) $ RX.makeInstr repr "lea"
            [ F86.QWordReg F86.R9
            , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0xa)))
            ]
-         , i $ RX.makeInstr repr "mov" 
+         , i $ RX.makeInstr repr "mov"
            [ F86.Mem64 (F86.Addr_64 F86.DS (Just F86.RDI) Nothing (F86.Disp32 (F86.Imm32Concrete (displacement index))))
            , F86.QWordReg F86.R9
            ]
@@ -142,7 +142,7 @@ linuxInitializationCode path globalStoreBytes globalAddr supportFunctions probeS
          -- Allocate memory using the external function
          -- FIXME: Exit if the call failed. e.g. %rax < 0
          allocMemory repr allocMemFnAddress globalStoreBytes path
-         
+
          -- Save the address returned by mmap (in %rax) into the global variable
          --
          -- We need to turn this into a symbolic reference to be fixed up later
