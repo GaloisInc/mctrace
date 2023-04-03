@@ -14,7 +14,10 @@ else
     $(error $(ARCH) - unknown architecture)
 endif
 
-all: $(PROGRAMS) instrument_tests
+all: platform_runtime $(PROGRAMS) instrument_tests
+
+platform_runtime:
+	$(CC) -c -I../library ../library/$(ARCH)/runtime.c -o ../library/$(ARCH)/runtime.o
 
 read-syscall-$(ARCH): read-syscall.c
 	$(CC) -static read-syscall.c -o read-syscall-$(ARCH)
@@ -66,4 +69,4 @@ instrument_tests:
 
 clean:
 	find . -name '*.o' -delete
-	rm -f *.inst *-X86 *-PPC
+	rm -f *.inst *-X86 *-PPC ../library/$(ARCH)/*.o

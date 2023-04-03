@@ -12,6 +12,8 @@
 #include <inttypes.h>
 #include <time.h>
 
+#include "include/platform_api.h"
+
 void send(uint32_t fd, void* str, uint32_t sz) {
     ssize_t ret = 0;
     __asm__ __volatile__(
@@ -26,7 +28,7 @@ void send(uint32_t fd, void* str, uint32_t sz) {
     );
 }
 
-void* alloc_memory(size_t sz) {
+void* alloc_memory(size_t sz, char *unused) {
     void* res = 0;
     __asm__ __volatile__(
         "li %%r0, 90;"

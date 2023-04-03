@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "include/platform_api.h"
+
 void send(uint32_t fd, void* str, uint32_t sz) {
     ssize_t ret = 0;
     __asm__ __volatile__(
