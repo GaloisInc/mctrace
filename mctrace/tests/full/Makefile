@@ -14,10 +14,10 @@ else
     $(error $(ARCH) - unknown architecture)
 endif
 
-all: platform_runtime $(PROGRAMS) instrument_tests
+all: platform_impl $(PROGRAMS) instrument_tests
 
-platform_runtime:
-	$(CC) -c -I../library ../library/$(ARCH)/runtime.c -o ../library/$(ARCH)/runtime.o
+platform_impl:
+	$(CC) -c -I../library ../library/$(ARCH)/platform_impl.c -o ../library/$(ARCH)/platform_impl.o
 
 read-syscall-$(ARCH): read-syscall.c
 	$(CC) -static read-syscall.c -o read-syscall-$(ARCH)
@@ -39,7 +39,7 @@ define do_instrument
     cabal exec mctrace -- instrument \
 	--binary=$2-$(ARCH) \
 	--output=$2-$(ARCH).$3.inst \
-	--library=../library/$(ARCH)/runtime.o \
+	--library=../library/$(ARCH)/platform_impl.o \
 	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
 	--persistence-file=/tmp/telemetry.bin \
 	--script=$1
