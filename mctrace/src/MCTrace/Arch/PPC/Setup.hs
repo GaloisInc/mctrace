@@ -42,8 +42,8 @@ allocMemory
   -> Word32
   -> FilePath
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-allocMemory repr allocFnSymAddress globalStoreBytes path =
-  i (D.Instruction D.LI (gpr 3 :< D.S16imm (fromIntegral globalStoreBytes) :< Nil)) DLN.:|
+allocMemory repr allocFnSymAddress globalStoreSize path =
+  i (D.Instruction D.LI (gpr 3 :< D.S16imm (fromIntegral globalStoreSize) :< Nil)) DLN.:|
   [ annotateInstrWith addAllocFunAddress $ i (D.Instruction D.BL (D.Calltarget (D.BT 0) :< Nil)) ]
   where
     addAllocFunAddress :: D.Operand x -> D.Annotated (R.Relocation RP.PPC32) D.Operand x
@@ -102,10 +102,10 @@ initializationCode
   -> R.ConcreteAddress RP.PPC32
   -- ^ The original entry point to the program
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-initializationCode path globalStoreBytes globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
+initializationCode path globalStoreSize globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
   withCallerSaveRegisters (
     sconcat (
-      allocMemory repr allocMemFnAddress globalStoreBytes path DLN.:|
+      allocMemory repr allocMemFnAddress globalStoreSize path DLN.:|
       [ loadConcreteAddress 9 globalAddr
       , il (D.Instruction D.STW (regOffset 9 0 :< gpr 3 :< Nil))
       , initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr
@@ -125,7 +125,7 @@ initializationCode path globalStoreBytes globalAddr supportFunctions probeSuppor
   --           [
   --        -- Allocate memory using the external function
   --        -- FIXME: Exit if the call failed. e.g. %rax < 0
-  --        allocMemory repr allocMemFnAddress globalStoreBytes path
+  --        allocMemory repr allocMemFnAddress globalStoreSize path
 
   --        -- Save the address returned by mmap (in %rax) into the global variable
   --        --

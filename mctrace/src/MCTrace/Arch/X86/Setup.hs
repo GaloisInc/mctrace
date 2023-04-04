@@ -48,9 +48,9 @@ allocMemory
   -> Word32
   -> FilePath
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-allocMemory repr allocFnSymAddress globalStoreBytes path =
+allocMemory repr allocFnSymAddress globalStoreSize path =
     i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI
-                               , F86.DWordSignedImm (fromIntegral globalStoreBytes)
+                               , F86.DWordSignedImm (fromIntegral globalStoreSize)
                                ] ) DLN.:|
   [ i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
                                 , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0xa)))
@@ -135,13 +135,13 @@ linuxInitializationCode
   -> R.ConcreteAddress RX.X86_64
   -- ^ The original entry point to the program
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-linuxInitializationCode path globalStoreBytes globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
+linuxInitializationCode path globalStoreSize globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
   neconcat (-- Save the registers we are going to clobber to the stack
             applyRegisters repr "push" usedRegisters DLN.:|
             [
          -- Allocate memory using the external function
          -- FIXME: Exit if the call failed. e.g. %rax < 0
-         allocMemory repr allocMemFnAddress globalStoreBytes path
+         allocMemory repr allocMemFnAddress globalStoreSize path
 
          -- Save the address returned by mmap (in %rax) into the global variable
          --
