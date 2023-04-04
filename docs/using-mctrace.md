@@ -19,7 +19,6 @@ mctrace instrument
     --output=<output file path>
     --library=<platform API implementation object file>
     --var-mapping=<output variable mapping JSON file path>
-    --persistence-file=<output file path for persisted data>
     --script=<input file path to Dtrace probe script>
 ```
 
@@ -31,7 +30,6 @@ mctrace instrument
     --output=my_program.instrumented
     --library=my_platform.o
     --var-mapping=mapping.json
-    --persistence-file=persistence.bin
     --script=my_dtrace_probes.d
 ```
 
