@@ -46,25 +46,15 @@ allocMemory
   :: R.InstructionArchRepr RX.X86_64 tp
   -> R.SymbolicAddress RX.X86_64
   -> Word32
-  -> FilePath
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-allocMemory repr allocFnSymAddress globalStoreSize path =
+allocMemory repr allocFnSymAddress globalStoreSize =
     i (RX.makeInstr repr "mov" [ F86.QWordReg F86.RDI
                                , F86.DWordSignedImm (fromIntegral globalStoreSize)
                                ] ) DLN.:|
-  [ i $ RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
-                                , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0xa)))
-                                ]
-  , RX.annotateInstrWith addAllocFunAddress $
+  [ RX.annotateInstrWith addAllocFunAddress $
       RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
-  , i $ RX.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset (fromIntegral jmpOff))]
-  , i $ RX.rawBytes repr (DBU.fromString path <> BS.pack [0])
   ]
   where
-    -- This is the offset to the jump over the file path
-    --
-    -- We add 1 for the NUL terminator
-    jmpOff = length path + 1
     addAllocFunAddress (RX.AnnotatedOperand v _) =
       case v of
         (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation allocFnSymAddress)
@@ -116,12 +106,8 @@ neconcat nel =
 -- This will embed the file path as raw data and then call a runtime support
 -- function to allocate the actual memory.
 linuxInitializationCode
-  :: FilePath
-  -- ^ The path of a file to serve as the backing store for the probe global storage
-  --
-  -- This path will be inserted into the instruction stream
-  -> Word32
-  -- ^ The number of bytes required for the global storage of probes
+  :: Word32
+  -- ^ Global store size
   -> R.ConcreteAddress RX.X86_64
   -- ^ The address of the global variable that will hold the pointer to the storage area
   -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64)
@@ -135,13 +121,13 @@ linuxInitializationCode
   -> R.ConcreteAddress RX.X86_64
   -- ^ The original entry point to the program
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-linuxInitializationCode path globalStoreSize globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
+linuxInitializationCode globalStoreSize globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
   neconcat (-- Save the registers we are going to clobber to the stack
             applyRegisters repr "push" usedRegisters DLN.:|
             [
          -- Allocate memory using the external function
          -- FIXME: Exit if the call failed. e.g. %rax < 0
-         allocMemory repr allocMemFnAddress globalStoreSize path
+         allocMemory repr allocMemFnAddress globalStoreSize
 
          -- Save the address returned by mmap (in %rax) into the global variable
          --

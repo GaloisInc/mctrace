@@ -46,9 +46,7 @@ data ProbeIndex globals w =
              , probeOffsets :: [(LDT.Probe globals, String, BS.ByteString)]
              -- ^ Offsets of each user-defined probe from the beginning of the
              -- text section allocated to the probe machine code
-             , probeStorageFile :: FilePath
-             -- ^ The file that mctrace global storage should be backed by at run time
-             , probeStorageBytes :: Word32
+             , probeGlobalStorageSize :: Word32
              -- ^ The number of bytes required for global storage
              }
 
@@ -111,12 +109,10 @@ indexELFProbes
   -- ^ The user-defined probes
   -> DE.ElfHeaderInfo w
   -- ^ The ELF file to index
-  -> FilePath
-  -- ^ The file to store probes to at run time
   -> Word32
   -- ^ The number of bytes of probe storage required
   -> Either ME.TraceException (ProbeIndex globals w)
-indexELFProbes probes ehi storageFile storageBytes = CME.runExcept $ withElfClassConstraints ehi $ do
+indexELFProbes probes ehi globalStorageSize = CME.runExcept $ withElfClassConstraints ehi $ do
   let (errs, elf) = DE.getElf ehi
   unless (null errs) $ do
     CME.throwError (ME.ELFParseError errs)
@@ -147,6 +143,5 @@ indexELFProbes probes ehi storageFile storageBytes = CME.runExcept $ withElfClas
   let ptrRepr = binaryWordRepr (DE.headerClass (DE.header ehi))
   return $ ProbeIndex { pointerWidth = ptrRepr
                       , probeOffsets = splitProbeBytes probeBytes offsets
-                      , probeStorageFile = storageFile
-                      , probeStorageBytes = storageBytes
+                      , probeGlobalStorageSize = globalStorageSize
                       }

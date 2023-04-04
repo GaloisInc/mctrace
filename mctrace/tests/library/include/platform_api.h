@@ -9,7 +9,7 @@
 void platform_send(uint32_t fd, void* str, uint32_t sz);
 
 // Allocate a buffer of the specified size and return its address.
-void* platform_alloc_memory(size_t sz, char* file);
+void* platform_alloc_memory(size_t sz);
 
 // Return the current value of a nanosecond timestamp counter. This
 // counter increments from an arbitrary point in the past and should

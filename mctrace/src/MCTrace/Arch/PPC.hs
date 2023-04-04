@@ -75,9 +75,8 @@ preAnalyze probeIndex library env = do
   let Just (origEntrySegoff DLN.:| _) = MBL.entryPoints loadedBinary
   let Just origEntryAddr = R.concreteFromSegmentOff mem origEntrySegoff
 
-  let storageFile = MC.probeStorageFile probeIndex
-  let storageBytes = MC.probeStorageBytes probeIndex
-  let initCode = MAS.initializationCode storageFile storageBytes storePtrAddr supportFunAddrMap probeSupportFunArrayAddr RX.PPCRepr pointerWidth origEntryAddr
+  let globalStorageSize = MC.probeGlobalStorageSize probeIndex
+  let initCode = MAS.initializationCode globalStorageSize storePtrAddr supportFunAddrMap probeSupportFunArrayAddr RX.PPCRepr pointerWidth origEntryAddr
   setupSymAddr <- R.injectInstructions "__mctrace_setup" RX.PPCRepr initCode
   return MA.InjectedAssets { MA.injectedProbeAddrs = probeAddrs
                            , MA.injectedStorePointer = storePtrAddr

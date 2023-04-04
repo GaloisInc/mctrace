@@ -123,10 +123,8 @@ instrument iopts = do
           BSL.writeFile (O.iVarMappingFile iopts) mappingFileBytes
 
           DE.SomeElf mcProbeELF <- ML.loadGeneratedProbes objBytes
-          -- file, bytes
-          let storageFile = O.iPersistenceFile iopts
-          let storageSize = globalsSize gvars gvarOffsets
-          probeIndex <- case MC.indexELFProbes namedProbes mcProbeELF storageFile (fromIntegral storageSize) of
+          let globalStorageSize = fromIntegral $ globalsSize gvars gvarOffsets
+          probeIndex <- case MC.indexELFProbes namedProbes mcProbeELF globalStorageSize of
             Left err -> X.throwIO err
             Right idx -> return idx
 

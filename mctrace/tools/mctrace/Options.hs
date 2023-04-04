@@ -18,9 +18,6 @@ data IOptions =
            , iVarMappingFile :: FilePath
            -- ^ The file to save the mapping from variable names to their
            -- offsets into the persistence file
-           , iPersistenceFile :: FilePath
-           -- ^ The file that the instrumented binary should save its collected
-           -- probe data
            , iLLVMAsmFile :: Maybe FilePath
            -- ^ An optional file to save the generated LLVM assembly for the
            -- probes to (for debugging purposes)
@@ -76,11 +73,6 @@ options = O.info (O.helper <*> O.hsubparser parser)
                              ( O.long "var-mapping"
                              <> O.metavar "FILE"
                              <> O.help "Save the mapping of variable names to offsets into storage for global variables"
-                             )
-                       <*> O.strOption
-                             ( O.long "persistence-file"
-                             <> O.metavar "FILE"
-                             <> O.help "The file to which the instrumented binary should persist its global values for offline analysis"
                              )
                        <*> O.optional (O.strOption
                              ( O.long "save-llvm-asm"

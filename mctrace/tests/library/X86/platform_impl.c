@@ -25,7 +25,7 @@ void platform_send(uint32_t fd, void* str, uint32_t sz) {
     );
 }
 
-void* platform_alloc_memory(size_t sz, char* file) {
+void* platform_alloc_memory(size_t sz) {
     void* res = 0;
     __asm__ __volatile__(
         //Create/Truncate file
@@ -53,9 +53,9 @@ void* platform_alloc_memory(size_t sz, char* file) {
         "syscall;"
         "movq %%rax, %[res];"
         : [res] "=g" (res)
-        : [file] "g" (file), [open_flags] "i" (O_RDWR | O_CREAT | O_TRUNC), 
-          [open_mode] "i" (S_IRWXU), [mmap_prot_mode] "i" (PROT_WRITE | PROT_READ),
-          [mmap_flags] "i" (MAP_SHARED | MAP_ANONYMOUS), [sz] "g" (sz)
+        : [mmap_prot_mode] "i" (PROT_WRITE | PROT_READ),
+          [mmap_flags] "i" (MAP_SHARED | MAP_ANONYMOUS),
+          [sz] "g" (sz)
         : "rdi", "rsi", "rdx", "rax", "r8", "r9", "r10"
     );
     

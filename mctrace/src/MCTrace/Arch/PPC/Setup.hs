@@ -40,9 +40,8 @@ allocMemory
   :: R.InstructionArchRepr RP.PPC32 RP.OnlyEncoding
   -> R.SymbolicAddress RP.PPC32
   -> Word32
-  -> FilePath
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-allocMemory repr allocFnSymAddress globalStoreSize path =
+allocMemory repr allocFnSymAddress globalStoreSize =
   i (D.Instruction D.LI (gpr 3 :< D.S16imm (fromIntegral globalStoreSize) :< Nil)) DLN.:|
   [ annotateInstrWith addAllocFunAddress $ i (D.Instruction D.BL (D.Calltarget (D.BT 0) :< Nil)) ]
   where
@@ -83,11 +82,7 @@ initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFu
 -- This will embed the file path as raw data and then call a platform
 -- API function to allocate the actual memory.
 initializationCode
-  :: FilePath
-  -- ^ The path of a file to serve as the backing store for the probe global storage
-  --
-  -- This path will be inserted into the instruction stream
-  -> Word32
+  :: Word32
   -- ^ The number of bytes required for the global storage of probes
   -> R.ConcreteAddress RP.PPC32
   -- ^ The address of the global variable that will hold the pointer to the storage area
@@ -102,10 +97,10 @@ initializationCode
   -> R.ConcreteAddress RP.PPC32
   -- ^ The original entry point to the program
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-initializationCode path globalStoreSize globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
+initializationCode globalStoreSize globalAddr supportFunctions probeSupportFunArrayAddr repr pointerWidth origEntry =
   withCallerSaveRegisters (
     sconcat (
-      allocMemory repr allocMemFnAddress globalStoreSize path DLN.:|
+      allocMemory repr allocMemFnAddress globalStoreSize DLN.:|
       [ loadConcreteAddress 9 globalAddr
       , il (D.Instruction D.STW (regOffset 9 0 :< gpr 3 :< Nil))
       , initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr

@@ -41,7 +41,6 @@ define do_instrument
 	--output=$2-$(ARCH).$3.inst \
 	--library=../library/$(ARCH)/platform_impl.o \
 	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
-	--persistence-file=/tmp/telemetry.bin \
 	--script=$1
 endef
 
