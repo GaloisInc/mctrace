@@ -11,7 +11,7 @@
 
 #include "include/platform_api.h"
 
-void send(uint32_t fd, void* str, uint32_t sz) {
+void platform_send(uint32_t fd, void* str, uint32_t sz) {
     ssize_t ret = 0;
     __asm__ __volatile__(
         "movq %[fd], %%rdi;"
@@ -25,7 +25,7 @@ void send(uint32_t fd, void* str, uint32_t sz) {
     );
 }
 
-void* alloc_memory(size_t sz, char* file) {
+void* platform_alloc_memory(size_t sz, char* file) {
     void* res = 0;
     __asm__ __volatile__(
         //Create/Truncate file
@@ -62,7 +62,7 @@ void* alloc_memory(size_t sz, char* file) {
     return res;
 }
 
-uint64_t timestamp() {
+uint64_t platform_timestamp() {
     struct timespec ts ;
     //void* pts = 0;
 

@@ -14,7 +14,7 @@
 
 #include "include/platform_api.h"
 
-void send(uint32_t fd, void* str, uint32_t sz) {
+void platform_send(uint32_t fd, void* str, uint32_t sz) {
     ssize_t ret = 0;
     __asm__ __volatile__(
         "ori %%r3, %[fd], 0;"
@@ -28,7 +28,7 @@ void send(uint32_t fd, void* str, uint32_t sz) {
     );
 }
 
-void* alloc_memory(size_t sz, char *unused) {
+void* platform_alloc_memory(size_t sz, char *unused) {
     void* res = 0;
     __asm__ __volatile__(
         "li %%r0, 90;"
@@ -63,7 +63,7 @@ void* alloc_memory(size_t sz, char *unused) {
     return res;
 }
 
-uint64_t timestamp() {
+uint64_t platform_timestamp() {
     struct timespec ts = { 0 } ;
 
     __asm__ __volatile__(

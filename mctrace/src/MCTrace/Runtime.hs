@@ -15,9 +15,9 @@ data SupportFunction = AllocMemory | Send | Timestamp
 
 supportFunctionNameMap :: Map.Map SupportFunction String
 supportFunctionNameMap =
-    Map.fromList [ (AllocMemory, "alloc_memory")
-                 , (Send, "send")
-                 , (Timestamp, "timestamp")
+    Map.fromList [ (AllocMemory, "platform_alloc_memory")
+                 , (Send, "platform_send")
+                 , (Timestamp, "platform_timestamp")
                  ]
 
 
