@@ -33,6 +33,7 @@ import qualified Data.Parameterized.NatRepr as PN
 import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Traversable as DT
 import qualified Debug.Trace as Trace
+import           Data.Tuple (swap)
 import qualified Renovate as R
 import qualified Renovate.Arch.PPC as RX
 
@@ -147,7 +148,7 @@ injectModule library supportFunNames = do
                               , let entryName = BSC.unpack (EE.steName entry)
                               ]
       -- let relevantSymbolOffsetPairs = mapMaybe (\(fnid, en, addr) -> ) supportFunNames
-      let nameMap = Map.fromList $ map (\(fnid, name) -> (name, fnid)) $ Map.toList supportFunNames
+      let nameMap = Map.fromList $ swap <$> Map.toList supportFunNames
       let fnBytes = splitFunctions textSecBytes symbolOffsetPairs
       let relevantFnBytes = mapMaybe (\(nm, bytes) -> (, bytes) <$> Map.lookup nm nameMap) fnBytes
       return relevantFnBytes
