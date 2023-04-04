@@ -122,7 +122,7 @@ injectModule library supportFunNames = do
   -- Inject each one individually
   Map.fromList <$> mapM injectFn fnBytes
   where
-    injectFn (fnid, bytes) = (fnid,) <$> R.injectFunction ("__mctrace_runtime_" ++ show fnid) bytes
+    injectFn (fnid, bytes) = (fnid,) <$> R.injectFunction ("__mctrace_platform_" ++ show fnid) bytes
     indexFunctions :: Either ME.TraceException [(RT.SupportFunction, BS.ByteString)]
     indexFunctions = CME.runExcept $ MC.withElfClassConstraints library $ do
       let (errs, elf) = EE.getElf library
