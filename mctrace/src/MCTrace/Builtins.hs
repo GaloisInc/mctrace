@@ -15,17 +15,17 @@ import qualified LLVM.IRBuilder as IRB
 
 import qualified MCTrace.RuntimeAPI as RT
 
-data BuiltinVarCompilerArgs = 
+data BuiltinVarCompilerArgs =
   BuiltinVarCompilerArgs { supportFunctions :: IR.Operand
                          , uCallerArg :: IR.Operand
                          , extraArg :: Maybe IR.Operand
                          }
 
-data BuiltinVarCompiler = 
+data BuiltinVarCompiler =
   BuiltinVarCompiler { compile :: forall m. (IRB.MonadModuleBuilder m, IRB.MonadIRBuilder m) => BuiltinVarCompilerArgs -> m IR.Operand
                      , argType :: Maybe IR.Type
                      , requireRewrite :: Bool
-                     }  
+                     }
 
 type BuiltinVarCompilerMap = Map.Map ST.Builtin BuiltinVarCompiler
 
@@ -38,7 +38,7 @@ builtinVarCompilers = Map.fromList [ (ST.Timestamp, timestampBuiltinCompiler)
 
 
 timestampBuiltinCompiler :: BuiltinVarCompiler
-timestampBuiltinCompiler = BuiltinVarCompiler { compile = compiler 
+timestampBuiltinCompiler = BuiltinVarCompiler { compile = compiler
                                               , argType = Nothing
                                               , requireRewrite = False
                                               }
@@ -50,10 +50,10 @@ timestampBuiltinCompiler = BuiltinVarCompiler { compile = compiler
         castedFn <- IRB.bitcast fn (IRT.ptr timestampFnType)
         IRB.call castedFn []
     timestampFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Timestamp
-    timestampFnType = IRT.FunctionType IRT.i64 [] False   
+    timestampFnType = IRT.FunctionType IRT.i64 [] False
 
 uCallerBuiltinCompiler :: BuiltinVarCompiler
-uCallerBuiltinCompiler = BuiltinVarCompiler { compile = compiler 
+uCallerBuiltinCompiler = BuiltinVarCompiler { compile = compiler
                                             , argType = Nothing
                                             , requireRewrite = False
                                             }
