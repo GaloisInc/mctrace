@@ -40,7 +40,7 @@ import qualified MCTrace.Arch.X86.Providers as MAP
 import qualified MCTrace.Arch.X86.Setup as MAS
 import qualified MCTrace.Codegen as MC
 import qualified MCTrace.Exceptions as ME
-import qualified MCTrace.Runtime as RT
+import qualified MCTrace.RuntimeAPI as RT
 import qualified MCTrace.ProbeProvider as MP
 import qualified MCTrace.PLT as PLT
 

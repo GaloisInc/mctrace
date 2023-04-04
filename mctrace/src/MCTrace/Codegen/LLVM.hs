@@ -44,7 +44,7 @@ import qualified Language.DTrace.Syntax.Typed as ST
 import qualified MCTrace.Builtins as MB
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Panic as MP
-import qualified MCTrace.Runtime as RT
+import qualified MCTrace.RuntimeAPI as RT
 
 -- | The global translation environment, which records the offset from the
 -- storage base pointer for each global variable

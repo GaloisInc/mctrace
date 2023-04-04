@@ -14,8 +14,8 @@ import qualified Flexdis86 as F86
 import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
 
-import qualified MCTrace.Runtime as RT
-import MCTrace.Runtime ( probeSupportFunctions, probeSupportFunctionIndexMap )
+import qualified MCTrace.RuntimeAPI as RT
+import MCTrace.RuntimeAPI ( probeSupportFunctions, probeSupportFunctionIndexMap )
 
 i :: RX.Instruction tp () -> R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)
 i = RX.noAddr

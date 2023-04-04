@@ -1,4 +1,4 @@
-module MCTrace.Runtime (
+module MCTrace.RuntimeAPI (
     SupportFunction(..)
   , supportFunctionNameMap
   , probeSupportFunctions

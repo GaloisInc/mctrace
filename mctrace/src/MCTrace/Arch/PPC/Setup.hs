@@ -29,8 +29,8 @@ import qualified Renovate as R
 import qualified Renovate.Arch.PPC as RP
 
 import           MCTrace.Arch.PPC.Internal
-import qualified MCTrace.Runtime as RT
-import MCTrace.Runtime ( probeSupportFunctions, probeSupportFunctionIndexMap )
+import qualified MCTrace.RuntimeAPI as RT
+import MCTrace.RuntimeAPI ( probeSupportFunctions, probeSupportFunctionIndexMap )
 import GHC.Int (Int16, Int32)
 
 -- | Generate instructions to allocate memory using a support function.
@@ -80,8 +80,8 @@ initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFu
 
 -- | The code sequence to initialize the probe execution environment (including global storage)
 --
--- This will embed the file path as raw data and then call a runtime support
--- function to allocate the actual memory.
+-- This will embed the file path as raw data and then call a platform
+-- API function to allocate the actual memory.
 initializationCode
   :: FilePath
   -- ^ The path of a file to serve as the backing store for the probe global storage

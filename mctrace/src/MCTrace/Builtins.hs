@@ -13,7 +13,7 @@ import qualified LLVM.AST as IR
 import qualified LLVM.AST.Type as IRT
 import qualified LLVM.IRBuilder as IRB
 
-import qualified MCTrace.Runtime as RT
+import qualified MCTrace.RuntimeAPI as RT
 
 data BuiltinVarCompilerArgs = 
   BuiltinVarCompilerArgs { supportFunctions :: IR.Operand
