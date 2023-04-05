@@ -19,6 +19,10 @@ Dtrace `timestamp` variable. Future work will include support for
 `ucaller`, a `copy` subroutine, and a `send` action for writing data to
 a platform-specific location.
 
+At this time, functions provided within the Platform API implementation
+object code cannot call each other. Each function must be
+self-contained. Future work will address this limitation.
+
 # Setting up MCtrace
 
 A self-contained version of MCTrace is included in this folder as a
