@@ -54,15 +54,19 @@ contains sources and binaries for a few test programs. We have also
 included a few binaries from a statically compiled version of GNU
 coreutils in `/mctrace-test/examples/extras`.
 
-MCTrace has been architected to allow users to inject a collection of
-support functions in to the binary (along with the probes). These
-support functions can be invoked by the probes and allow it to access
-platform-specific facilities (e.g., memory allocation, timestamps) and
-support context-specific data ex-filtration (e.g. publishing data on a
-CAN bus). In the general case, these support functions are provided by
-the users of MCTrace, for testing purposes, a simple library of support
-functions is available at `/mctrace-test/examples/library/X86` and
-includes both sources and binaries.
+MCTrace has been architected to require users to inject a collection
+of support functions in to the binary that MCTrace needs in order to
+produce a working binary. This collection of support functions is
+called the Platform API. The platform API functions allow MCTrace to
+delegate platform-specific functionality (e.g., memory allocation,
+timestamps) and support platform-specific data exfiltration (e.g.
+publishing data on a CAN bus). For testing purposes, simple platform API
+implementations are available at `/mctrace-test/examples/library/X86`
+and `/mctrace-test/examples/library/PPC` and include both source and
+object code.
+
+For more details on the Platform API that must be implemented in order
+to use MCTrace, see `docs/using-mctrace.md`.
 
 # Using MCTrace
 
