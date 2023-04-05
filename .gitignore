@@ -1,6 +1,6 @@
-/dist-newstyle/
-/cabal.project.local*
-/.ghc*
+dist-newstyle/
+cabal.project.local*
+.ghc*
 dev_setup.log
 cabal.project
 cabal.project.freeze
