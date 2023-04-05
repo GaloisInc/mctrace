@@ -116,7 +116,7 @@ This should produce the following output:
 -   Note that `2>&1 >/dev/null` has the effect of piping the standard
     error to the next command, while suppressing the standard output of
     the command. This is not required for a simple program like this,
-    but is convenient when instrumenting programs that also produces
+    but is convenient when instrumenting programs that also produce
     standard output.
 
 -   The `extractor.py` script offers a few other conveniences when
