@@ -1,10 +1,23 @@
 # Introduction
 
-The MCTrace tool enables instrumentation of binaries in order to collect
-fine-grained tracing information. It is analogous to DTrace, but does
-not require native operating system support. The input format of MCTrace
-is the same as DTrace, but it currently supports a subset of the probes
-and actions supported by DTrace.
+The MCTrace tool enables instrumentation of binaries in order to
+collect fine-grained tracing information. It provides functionality
+similar to what is provided by DTrace but does not require native
+operating system support. The input language of MCTrace is the DTrace
+language, but it currently supports a subset of the probes, actions,
+and language features supported by DTrace.
+
+# Features of This Demonstration
+
+This demonstration includes example PowerPC binaries that run in
+Linux user space. Future work will involve supporting "bare-metal"
+PowerPC programs; that work is ongoing and will be featurd in a future
+demonstration.
+
+This demonstration includes example Dtrace probes that use the built-in
+Dtrace `timestamp` variable. Future work will include support for
+`ucaller`, a `copy` subroutine, and a `send` action for writing data to
+a platform-specific location.
 
 # Setting up MCtrace
 
