@@ -125,17 +125,14 @@ This should produce the following output:
     should detail these options.
 
 -   Here are a few other binary / probe combinations to exercise and can
-    be run similar to the one above (all programs in
-    `/mctrace-test/examples/full`, except for `cat` which
-    is in `/mctrace-test/examples/extras`, all probes in
-    `/mctrace-test/examples/eval`):
+    be run similar to the one above:
 
-    | Binaries                     | Probe                          |
-    | ---------------------------- | ------------------------------ |
-    | alloc-dealloc-fread-fwrite   | fopen-calloc-fclose-probe.d    |
-    | slow-read-write              | write-timing-probe.d           |
-    | cat                          | multiple-probe.d               |
-    | read-write-syscall           | graph-probe.d                  |
+    | Binaries                                   | Probe                                       |
+    | ------------------------------------------ | ------------------------------------------- |
+    | `examples/full/alloc-dealloc-fread-fwrite` | `examples/eval/fopen-calloc-fclose-probe.d` |
+    | `examples/full/slow-read-write`            | `examples/eval/write-timing-probe.d`        |
+    | `examples/full/read-write-syscall`         | `examples/eval/graph-probe.d`               |
+    | `examples/extras/cat`                      | `examples/eval/multiple-probe.d`            |
 
     The first two probes above measure timing across different calls,
     while the last one instruments *all* functions in the binary and
