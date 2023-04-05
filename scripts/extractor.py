@@ -9,7 +9,7 @@ import tempfile
 
 
 parser = argparse.ArgumentParser(
-    description = 'Helper script to interpret streamed data from instrumented binaries'
+    description='Helper script to interpret streamed data from instrumented binaries'
 )
 parser.add_argument("var_mapping")
 parser.add_argument('--big-endian', action='store_true', default=False, help="Process the results as big-endian values")
@@ -23,7 +23,7 @@ total_bytes = 0
 mapping = {}
 with open(args.var_mapping) as f:
     mapping = json.load(f)
-    
+
     # NOTE: Currently MCTrace does not pack its data, every
     # field is stretched out to 64 bits / 8 bytes.
     # FIXME: Change this when that changes
@@ -34,9 +34,9 @@ while True:
     bb = sys.stdin.buffer.read(total_bytes)
     if len(bb) == 0:
         break
-    
+
     if len(bb) < total_bytes:
-        text = f"Expected {total_bytes} bytes, got {len(bb)}" 
+        text = f"Expected {total_bytes} bytes, got {len(bb)}"
         raise Exception(text)
 
     if args.big_endian:
@@ -58,24 +58,22 @@ while True:
     tmp = tempfile.NamedTemporaryFile(delete=False)
     tmp.write(bb)
     tmp.flush()
-    
+
     if args.extract:
         subprocess.check_call(
             ["cabal", "exec", "mctrace", "--", "extract",
-            f"--var-mapping={args.var_mapping}",
-            f"--persistence-file={tmp.name}"
-            ]
+             f"--var-mapping={args.var_mapping}",
+             f"--persistence-file={tmp.name}"]
         )
     elif args.columns:
         res = subprocess.check_output(
             ["cabal", "exec", "mctrace", "--", "extract",
-            f"--var-mapping={args.var_mapping}",
-            f"--persistence-file={tmp.name}"
-            ]
+             f"--var-mapping={args.var_mapping}",
+             f"--persistence-file={tmp.name}"]
         )
-        
+
         dct = json.loads(res)
-        
+
         columns = args.columns.split(',') if args.columns != 1 else list(dct.keys())
         header_format_string = "|" + "{:<21}|" * len(columns)
         if is_first:
@@ -83,12 +81,12 @@ while True:
             print(header_format_string.format(*line_parts))
             print(header_format_string.format(*columns))
             print(header_format_string.format(*line_parts))
-            
+
         format_string = "| " + "{:<20}| " * len(columns)
         values = [dct[c] for c in columns]
         print(format_string.format(*values))
     else:
         subprocess.check_call(["hexdump", tmp.name])
-    
+
     is_first = False
     os.unlink(tmp.name)
