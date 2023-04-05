@@ -73,7 +73,8 @@ function install_system_packages {
         zlib1g-dev \
         qemu-system-ppc \
         wget \
-        curl
+        curl \
+        qemu-user
 }
 
 function install_ghcup {
