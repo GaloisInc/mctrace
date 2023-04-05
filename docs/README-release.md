@@ -72,7 +72,6 @@ To instrument a binary with a probe, execute:
        --output=/tmp/read-write-syscall.instrumented \
        --library=/mctrace-test/library/X86/runtime.o \
        --var-mapping=/tmp/read-write-syscall.mapping.json \
-       --persistence-file=/tmp/telemetry.bin \
        --script=/mctrace-test/eval/multiple-probe.d
 
 -   The `--binary` and the `--script` options tell mctrace to instrument
@@ -80,11 +79,6 @@ To instrument a binary with a probe, execute:
 -   The `--output` option specifies the name for the instrumented binary
 -   The `--library` option specifies the path to the library of support
     functions
--   The `--persistence-file` option tells `mctrace` where the
-    instrumented binary should save its collected telemetry when it
-    runs. Note that this is specific to the current X86 implementation
-    and will not be required in general when running on embedded
-    platforms.
 -   The `--var-mapping` option tells `mctrace` where to record metadata
     that allows it to later interpret the collected telemetry
 
