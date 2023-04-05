@@ -151,7 +151,7 @@ data App (f :: Type -> DK.Type) (tp :: Type) where
   FGe :: f (FloatType p) -> f (FloatType p) -> App f BoolType
   FloatToBV :: FloatPrecRepr p -> f (FloatType p) -> PN.NatRepr n -> App f (BVType n)
 
-  Call :: Repr tp -> T.Text -> Ctx.Assignment (App f) tps -> App f tp
+  Call :: Repr tp -> T.Text -> Ctx.Assignment f tps -> App f tp
 
 data Stmt globals locals where
   SetReg :: Ctx.Index locals tp -> Expr globals locals tp -> Stmt globals locals
