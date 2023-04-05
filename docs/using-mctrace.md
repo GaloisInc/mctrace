@@ -58,4 +58,4 @@ the Dtrace language, some core Dtrace language features are supported:
 * The `timestamp` variable
 
 Example Dtrace probe scripts demonstrating MCTrace's features can be
-found in `dtrace-examples/` in this distribution.
+found in `examples/eval/` in this distribution.
