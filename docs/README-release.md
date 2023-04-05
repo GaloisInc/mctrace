@@ -14,6 +14,9 @@ Linux user space. Future work will involve supporting "bare-metal"
 PowerPC programs; that work is ongoing and will be featurd in a future
 demonstration.
 
+The binaries included in this demonstration are statically linked. At
+this time, MCTrace supports only statically-linked input binaries.
+
 This demonstration includes example Dtrace probes that use the built-in
 Dtrace `timestamp` variable. Future work will include support for
 `ucaller`, a `copy` subroutine, and a `send` action for writing data to
