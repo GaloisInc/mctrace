@@ -130,12 +130,12 @@ This should produce the following output:
     is in `/mctrace-test/examples/extras`, all probes in
     `/mctrace-test/examples/eval`):
 
-      Binaries                       Probe
-      ----------------------------   ------------------------------
-      alloc-dealloc-fread-fwrite     fopen-calloc-fclose-probe.d
-      slow-read-write                write-timing-probe.d
-      cat                            multiple-probe.d
-      read-write-syscall             graph-probe.d
+    | Binaries                     | Probe                          |
+    | ---------------------------- | ------------------------------ |
+    | alloc-dealloc-fread-fwrite   | fopen-calloc-fclose-probe.d    |
+    | slow-read-write              | write-timing-probe.d           |
+    | cat                          | multiple-probe.d               |
+    | read-write-syscall           | graph-probe.d                  |
 
     The first two probes above measure timing across different calls,
     while the last one instruments *all* functions in the binary and
