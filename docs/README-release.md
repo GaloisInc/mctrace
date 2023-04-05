@@ -44,15 +44,15 @@ The current version of MCTrace is capable of instrumenting x86-64
 binaries. A port to PowerPC is currently in progress and is expected to
 be available soon.
 
-The docker image contains a few x86-64 test programs and example probes
-that can be used to exercise MCTrace. In particular the folder
-`/mctrace-test/eval` contains a collection of probes
-primarily derived from those provided to us by WebSensing (the probes
-have been modified slightly after discussions with WebSensing to fit the
-currently supported DTrace syntax in MCTrace),
-`/mctrace-test/full` contains sources and binaries for a few
-test programs. We have also included a few binaries from a statically
-compiled version of GNU coreutils in `/mctrace-test/extras`.
+The docker image contains a few x86-64 test programs and example
+probes that can be used to exercise MCTrace. In particular the folder
+`/mctrace-test/examples/eval` contains a collection of probes primarily
+derived from those provided to us by WebSensing (the probes have been
+modified slightly after discussions with WebSensing to fit the currently
+supported DTrace syntax in MCTrace), `/mctrace-test/examples/full`
+contains sources and binaries for a few test programs. We have also
+included a few binaries from a statically compiled version of GNU
+coreutils in `/mctrace-test/examples/extras`.
 
 MCTrace has been architected to allow users to inject a collection of
 support functions in to the binary (along with the probes). These
@@ -61,18 +61,18 @@ platform-specific facilities (e.g., memory allocation, timestamps) and
 support context-specific data ex-filtration (e.g. publishing data on a
 CAN bus). In the general case, these support functions are provided by
 the users of MCTrace, for testing purposes, a simple library of support
-functions is available at `/mctrace-test/library/X86` and
+functions is available at `/mctrace-test/examples/library/X86` and
 includes both sources and binaries.
 
 # Using MCTrace
 
 To instrument a binary with a probe, execute:
 
-    mctrace instrument --binary=/mctrace-test/full/read-write-syscall \
+    mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall \
        --output=/tmp/read-write-syscall.instrumented \
-       --library=/mctrace-test/library/X86/runtime.o \
+       --library=/mctrace-test/examples/library/X86/runtime.o \
        --var-mapping=/tmp/read-write-syscall.mapping.json \
-       --script=/mctrace-test/eval/multiple-probe.d
+       --script=/mctrace-test/examples/eval/multiple-probe.d
 
 -   The `--binary` and the `--script` options tell mctrace to instrument
     the specified binary with the given probe script
@@ -125,9 +125,10 @@ This should produce the following output:
     should detail these options.
 
 -   Here are a few other binary / probe combinations to exercise and can
-    be run similar to the one above (all programs in `/mctrace-test/full`, 
-    except for `cat` which is in `/mctrace-test/extras`, all probes in
-    `/mctrace-test/eval`):
+    be run similar to the one above (all programs in
+    `/mctrace-test/examples/full`, except for `cat` which
+    is in `/mctrace-test/examples/extras`, all probes in
+    `/mctrace-test/examples/eval`):
 
       Binaries                       Probe
       ----------------------------   ------------------------------

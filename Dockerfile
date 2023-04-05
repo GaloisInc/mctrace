@@ -36,13 +36,17 @@ RUN cabal update
 # Build mctrace
 RUN ./build.sh
 
+# Build examples for PPC
+RUN make -C mctrace/tests/full ARCH=PPC
+
 # Final stage where we build a minimal image
 FROM ubuntu:22.04
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SOURCE_MCTRACE_ROOT=/root/mctrace
-ENV TARGET_MCTRACE_ROOT=/mctrace-bin
+ENV TARGET_MCTRACE_BIN=/mctrace-bin
+ENV TARGET_MCTRACE_ROOT=/mctrace-test
 
 # Install packages
 RUN \
@@ -54,7 +58,10 @@ RUN apt-get install -y musl-tools make qemu-user
 # Copy the minimal amount of files we need to get this running
 COPY --from=base \
     ${SOURCE_MCTRACE_ROOT}/dist-newstyle/build/x86_64-linux/ghc-8.10.7/mctrace-0.1.0.0/x/mctrace/build/mctrace/mctrace \
-    ${TARGET_MCTRACE_ROOT}/mctrace
+    ${TARGET_MCTRACE_BIN}/mctrace
+
+# Copy example probes and binaries
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/mctrace/tests /${TARGET_MCTRACE_ROOT}/examples
 
 COPY --from=base /lib/x86_64-linux-gnu/libLLVM-12.so.1 /lib/x86_64-linux-gnu/libLLVM-12.so.1
 COPY --from=base /lib/x86_64-linux-gnu/libedit.so.2 /lib/x86_64-linux-gnu/libedit.so.2
@@ -64,4 +71,4 @@ COPY --from=base /lib/x86_64-linux-gnu/libicuuc.so.70 /lib/x86_64-linux-gnu/libi
 COPY --from=base /lib/x86_64-linux-gnu/libmd.so.0 /lib/x86_64-linux-gnu/libmd.so.0
 COPY --from=base /lib/x86_64-linux-gnu/libicudata.so.70 /lib/x86_64-linux-gnu/libicudata.so.70
 
-ENV PATH=${PATH}:${TARGET_MCTRACE_ROOT}
+ENV PATH=${PATH}:${TARGET_MCTRACE_BIN}
