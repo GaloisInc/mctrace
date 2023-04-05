@@ -1,17 +1,17 @@
-Using Mctrace
+Using MCTrace
 =============
 
-This document provides information how to use the Mctrace tool to
+This document provides information how to use the MCTrace tool to
 instrument a binary with Dtrace-style probes.
 
-Using Mctrace requires:
+Using MCTrace requires:
 
 * An `x86_64` or PowerPC ELF binary to instrument,
-* An object file implementing the Mctrace Platform API (see below), and
+* An object file implementing the MCTrace Platform API (see below), and
 * A Dtrace probe script containing the probes that will be used to
   modify the provided ELF binary.
 
-Mctrace is run as follows:
+MCTrace is run as follows:
 
 ```
 mctrace instrument
@@ -48,8 +48,8 @@ the `mctrace` as the `--library` argument above.
 Supported Dtrace API
 --------------------
 
-Mctrace uses the Dtrace language as the means for expressing how it
-should modify its input binary. While Mctrace does not implement all of
+MCTrace uses the Dtrace language as the means for expressing how it
+should modify its input binary. While MCTrace does not implement all of
 the Dtrace language, some core Dtrace language features are supported:
 
 * Probe pattern matching
@@ -57,5 +57,5 @@ the Dtrace language, some core Dtrace language features are supported:
 * Global variables
 * The `timestamp` variable
 
-Example Dtrace probe scripts demonstrating Mctrace's features can be
+Example Dtrace probe scripts demonstrating MCTrace's features can be
 found in `dtrace-examples/` in this distribution.
