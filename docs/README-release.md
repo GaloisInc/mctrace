@@ -11,7 +11,7 @@ and language features supported by DTrace.
 
 This demonstration includes example PowerPC binaries that run in
 Linux user space. Future work will involve supporting "bare-metal"
-PowerPC programs; that work is ongoing and will be featurd in a future
+PowerPC programs; that work is ongoing and will be featured in a future
 demonstration.
 
 The binaries included in this demonstration are statically linked. At
@@ -19,8 +19,8 @@ this time, MCTrace supports only statically-linked input binaries.
 
 This demonstration includes example Dtrace probes that use the built-in
 Dtrace `timestamp` variable. Future work will include support for
-`ucaller`, a `copy` subroutine, and a `send` action for writing data to
-a platform-specific location.
+`ucaller`, a `copy` subroutine, and an explicit `send` action for writing
+data to a platform-specific location.
 
 At this time, functions provided within the Platform API implementation
 object code cannot call each other. Each function must be
