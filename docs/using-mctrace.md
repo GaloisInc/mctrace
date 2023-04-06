@@ -42,7 +42,7 @@ be run. A binary can be instrumented only once a complete Platform API
 implementation is provided as object code. A complete implementation of
 the Platform API must provide implementations of all of the functions
 the in file `examples/library/include/platform_api.h` provided in this
-distribution. the Once compiled, the platform API implementation can be
+distribution. Once compiled, the platform API implementation can be
 provided to the `mctrace` as the `--library` argument above.
 
 Supported Dtrace API
