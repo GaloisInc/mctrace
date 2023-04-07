@@ -74,7 +74,12 @@ function install_system_packages {
         qemu-system-ppc \
         wget \
         curl \
-        qemu-user
+        qemu-user \
+        autoconf \
+        autopoint \
+        bison \
+        gperf \
+        texinfo
 }
 
 function install_ghcup {
