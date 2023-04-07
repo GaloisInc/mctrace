@@ -15,6 +15,9 @@
 #include "include/platform_api.h"
 
 void platform_send(uint32_t fd, void* str, uint32_t sz) {
+    //Currently we *always* force the write to go to stderr
+    //(file descriptor = 2) irrespective of what was passed
+    //in as the value of fd
     ssize_t ret = 0;
     __asm__ __volatile__(
         "ori %%r3, %[fd], 0;"
@@ -23,7 +26,7 @@ void platform_send(uint32_t fd, void* str, uint32_t sz) {
         "li %%r0, 4;"
         "sc;"
         : "=g" (ret)
-        : [fd] "r" (fd), [str] "r" (str), [sz] "r" ((size_t)sz)
+        : [fd] "r" (2), [str] "r" (str), [sz] "r" ((size_t)sz)
         : "r3", "r4", "r5", "r0"
     );
 }

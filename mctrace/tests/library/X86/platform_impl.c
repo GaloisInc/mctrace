@@ -12,6 +12,9 @@
 #include "include/platform_api.h"
 
 void platform_send(uint32_t fd, void* str, uint32_t sz) {
+    //Currently we *always* force the write to go to stderr
+    //(file descriptor = 2) irrespective of what was passed
+    //in as the value of fd
     ssize_t ret = 0;
     __asm__ __volatile__(
         "movq %[fd], %%rdi;"
@@ -20,7 +23,7 @@ void platform_send(uint32_t fd, void* str, uint32_t sz) {
         "movq $1, %%rax;"
         "syscall;"
         : "=g" (ret)
-        : [fd] "g" ((uint64_t)fd), [str] "g" (str), [sz] "g" ((size_t)sz)
+        : [fd] "g" (2), [str] "g" (str), [sz] "g" ((size_t)sz)
         : "rdi", "rsi", "rdx", "rax"
     );
 }
