@@ -53,7 +53,7 @@ RUN \
   apt-get update && \
   apt-get upgrade -y
 
-RUN apt-get install -y musl-tools make qemu-user
+RUN apt-get install -y musl-tools make qemu-user qemu-user-binfmt
 
 # Copy the minimal amount of files we need to get this running
 COPY --from=base \
