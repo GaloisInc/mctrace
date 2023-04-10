@@ -31,21 +31,6 @@ void platform_send(uint32_t fd, void* str, uint32_t sz) {
 void* platform_alloc_memory(size_t sz) {
     void* res = 0;
     __asm__ __volatile__(
-        //Create/Truncate file
-        // "movq $2, %%rax;"
-        // "movq %[file], %%rdi;"
-        // "movq %[open_flags], %%rsi;"
-        // "movq %[open_mode], %%rdx;"
-        // "syscall;"
-        // //Truncate to size (store the returned fd from the previous one though)
-        // "push %%rax;"
-        // "movq %%rax, %%rdi;"
-        // "movq %[sz], %%rsi;"
-        // "movq $77, %%rax;"
-        // "syscall;"
-        // "pop %%rax;"
-        //Mmap using the file descriptor from above
-        //"movq %%rax, %%r8;"
         "movq $-1, %%r8;"
         "movq $9, %%rax;"
         "movq $0, %%rdi;"
@@ -67,11 +52,9 @@ void* platform_alloc_memory(size_t sz) {
 
 uint64_t platform_timestamp() {
     struct timespec ts ;
-    //void* pts = 0;
 
     __asm__ __volatile__(
     "movq $0, %%rdi;"
-    //"movq %[pts], %%rsi;"
     "lea %[ts], %%rsi;"
     "movq $228, %%rax;"
     "syscall;"
