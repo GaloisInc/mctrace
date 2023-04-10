@@ -3,6 +3,8 @@
 import argparse
 import json
 import os
+import shlex
+import shutil
 import sys
 import subprocess
 import tempfile
@@ -28,6 +30,17 @@ with open(args.var_mapping) as f:
     # field is stretched out to 64 bits / 8 bytes.
     # FIXME: Change this when that changes
     total_bytes = len(mapping) * 8
+
+# Determine cabal command. If an environment variable MCTRACE_COMMAND
+# has been set, use that as a command. Otherwise if the "mctrace"
+# exectuable is already on path, we use that, otherwise we will fall
+# back to cabal
+if cmd := os.getenv('MCTRACE_COMMAND'):
+    mctrace_command = shlex.split(cmd)
+elif loc := shutil.which('mctrace'):
+    mctrace_command = [loc, "--"]
+else:
+    mctrace_command = ["cabal", "exec", "mctrace", "--"]
 
 is_first = True
 while True:
@@ -61,15 +74,19 @@ while True:
 
     if args.extract:
         subprocess.check_call(
-            ["cabal", "exec", "mctrace", "--", "extract",
-             f"--var-mapping={args.var_mapping}",
-             f"--persistence-file={tmp.name}"]
+            mctrace_command + [
+                "extract",
+                f"--var-mapping={args.var_mapping}",
+                f"--persistence-file={tmp.name}"
+            ]
         )
     elif args.columns:
         res = subprocess.check_output(
-            ["cabal", "exec", "mctrace", "--", "extract",
-             f"--var-mapping={args.var_mapping}",
-             f"--persistence-file={tmp.name}"]
+            mctrace_command + [
+                "extract",
+                f"--var-mapping={args.var_mapping}",
+                f"--persistence-file={tmp.name}"
+            ]
         )
 
         dct = json.loads(res)
