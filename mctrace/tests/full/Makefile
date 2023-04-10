@@ -14,7 +14,7 @@ else
     $(error $(ARCH) - unknown architecture)
 endif
 
-all: platform_impl $(PROGRAMS) instrument_tests
+all: platform_impl $(PROGRAMS) instrument_tests instrument_binaries
 
 platform_impl:
 	$(CC) -c -I../library ../library/$(ARCH)/platform_impl.c -o ../library/$(ARCH)/platform_impl.o
@@ -65,6 +65,35 @@ instrument_tests:
 	$(call do_instrument,../eval/graph-probe.d,read-syscall,5)
 	$(call do_instrument,../eval/graph-probe.d,read-write-syscall,5)
 	$(call do_instrument,../eval/graph-probe.d,slow-read-write,5)
+
+######################################################################
+# Additional testing with prebuilt binaries and associated probes.
+######################################################################
+
+define do_instrument_binary
+    cabal exec mctrace -- instrument \
+	--binary=../binaries/$(ARCH)/$2 \
+	--output=$2-$(ARCH).$3.inst \
+	--library=../library/$(ARCH)/platform_impl.o \
+	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
+	--script=$1
+endef
+
+# Prebuilt binaries are generally real programs and it may not be possible
+# that every binary has a counterpart on each supported architecture. Instead
+# we define binary/probe combinations for each architecture separately. The
+# ARCH variable determines the exact set that gets instrumented for any 
+# particular run.
+
+
+instrument_binaries_PPC:
+	$(call do_instrument_binary,../eval/cat.probe.d,cat,1)
+	$(call do_instrument_binary,../eval/sha256sum.probe.d,sha256sum,1)
+
+instrument_binaries_X86:
+	# We don't have anything for X86 as of now
+
+instrument_binaries: $(if $(filter PPC,$(ARCH)),instrument_binaries_PPC,instrument_binaries_X86)
 
 clean:
 	find . -name '*.o' -delete
