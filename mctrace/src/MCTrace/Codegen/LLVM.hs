@@ -308,7 +308,7 @@ withLLVMOptions (DE.SomeElf ehi) k =
       let features = Map.empty
       LLT.withTargetOptions $ \targetOpts -> do
         LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
-    m -> Trace.trace "WTF" $ X.throwIO (ME.UnsupportedArchitecture m)
+    m -> X.throwIO (ME.UnsupportedArchitecture m)
 
 
 {- Note [CodeGen Strategy]
