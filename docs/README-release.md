@@ -74,7 +74,7 @@ To instrument a binary with a probe, execute:
 
     mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall \
        --output=/tmp/read-write-syscall.instrumented \
-       --library=/mctrace-test/examples/library/X86/runtime.o \
+       --library=/mctrace-test/examples/library/X86/platform_impl.o \
        --var-mapping=/tmp/read-write-syscall.mapping.json \
        --script=/mctrace-test/examples/eval/multiple-probe.d
 
