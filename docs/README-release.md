@@ -51,7 +51,7 @@ Example Dtrace probe scripts demonstrating MCTrace's features can be
 found in `examples/eval/` in this distribution.
 
 Features and Limitations of This Demonstration
-==============================================
+----------------------------------------------
 
 This demonstration includes a small collection of statically-linked
 PowerPC binaries and a selection of probes that can be used to
@@ -73,8 +73,8 @@ limitations:
 
    We expect to relax part of these restrictions in a future version.
 
-Starting This Demonstration
-===========================
+Running the Demonstration
+=========================
 
 This document is provided with a self-contained version of MCTrace as a
 Docker image. To load and run the image, run the following commands:
@@ -90,7 +90,7 @@ binaries. We discuss the details of the `mctrace` tool in the following
 sections.
 
 The MCTrace Docker Image
-========================
+------------------------
 
 The current version of MCTrace is capable of instrumenting PowerPC
 binaries.
@@ -109,7 +109,7 @@ Important folders are as follows:
    compiled version of GNU coreutils for use with `mctrace`.
 
 Using MCTrace
-=============
+-------------
 
 MCTrace is run as follows:
 
