@@ -198,10 +198,10 @@ This should produce output similar to the following:
   detail these options.
 
 - The table below lists a few other binaries for PowerPC as well some
-  example probes that can be used to instrument each binary. Note that
-  many other combinations of example programs and probes can work
-  together; the full list of combinations can be found in the
-  [tests `Makefile`](../mctrace/tests/full/Makefile).
+  example probes that can be used to instrument each binary. Note
+  that many other combinations of example programs and probes can
+  work together; the full list of combinations can be found in
+  `examples/full/Makefile`.
 
     | Binaries                                                                                           | Probe                                       |
     | ---------------------------------------------------------------------------------------------------| ------------------------------------------- |
