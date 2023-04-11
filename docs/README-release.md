@@ -128,16 +128,18 @@ This should produce the following output:
     produce columnar outputs and filter columns. `extractor.py --help`
     should detail these options.
 
--   Here are a few other binary / probe combinations to exercise and can
-    be run similar to the one above:
+-   The table below list a few other binaries for PowerPC and X86-64 as well
+    some example probes to instrument each with. Note that many other combinations of
+    example programs and probes can work together; the full list of combinations can
+    be found in the [tests `Makefile`](../mctrace/tests/full/Makefile).
 
-    | Binaries                                   | Probe                                       |
-    | ------------------------------------------ | ------------------------------------------- |
-    | `examples/full/alloc-dealloc-fread-fwrite` | `examples/eval/fopen-calloc-fclose-probe.d` |
-    | `examples/full/slow-read-write`            | `examples/eval/write-timing-probe.d`        |
-    | `examples/full/read-write-syscall`         | `examples/eval/graph-probe.d`               |
-    | `examples/extras/cat`                      | `examples/eval/multiple-probe.d`            |
+    | Binaries                                                                                           | Probe                                       |
+    | ---------------------------------------------------------------------------------------------------| ------------------------------------------- |
+    | `examples/full/alloc-dealloc-fread-fwrite-PPC` <br> `examples/full/alloc-dealloc-fread-fwrite-X86` | `examples/eval/fopen-calloc-fclose-probe.d` |
+    | `examples/full/slow-read-write-PPC` <br> `examples/full/slow-read-write-X86`                       | `examples/eval/write-timing-probe.d`        |
+    | `examples/full/read-write-syscall-PPC` <br> `examples/full/read-write-syscall-X86`                 | `examples/eval/graph-probe.d`               |
+    | `examples/binaries/PPC/cat`                                                                        | `examples/eval/cat-probe.d`                 |
+    | `examples/binaries/PPC/sha256sum`                                                                  | `examples/eval/sha256sum-probe.d`           |
 
     The first two probes above measure timing across different calls,
-    while the last one instruments *all* functions in the binary and
-    captures the program counter when triggered.
+    while the third one instruments *all* functions in the binary.
