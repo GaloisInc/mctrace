@@ -13,7 +13,7 @@ How MCTrace Works
 
 Using MCTrace requires:
 
-* An PowerPC or `x86_64` ELF binary to instrument,
+* A PowerPC or `x86_64` ELF Linux user space binary to instrument,
 * An object file implementing the MCTrace Platform API (see below), and
 * A Dtrace probe script containing the probes that will be used to
   modify the provided ELF binary.
