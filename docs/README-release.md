@@ -136,17 +136,17 @@ mctrace instrument
     --script=my_dtrace_probes.d
 ```
 
-For example, the `read-write-syscall-PPC.inst` binary in this
+For example, the `read-write-syscall-PPC.1.inst` binary in this
 distribution is the instrumented version of the PowerPC build of
 `read-write-syscall` and was instrumented with the following `mctrace`
 command:
 
 ```
 mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall \
-   --output=/mctrace-test/examples/full/read-write-syscall-PPC.inst \
+   --output=/mctrace-test/examples/full/read-write-syscall-PPC.1.inst \
    --library=/mctrace-test/examples/library/PPC/platform_impl.o \
-   --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.json \
-   --script=/mctrace-test/examples/eval/write-timing-probe.d
+   --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.1.json \
+   --script=/mctrace-test/examples/eval/single-add-probe.d
 ```
 
 - The `--binary` and the `--script` options tell mctrace to instrument
