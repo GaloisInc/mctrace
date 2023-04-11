@@ -36,6 +36,8 @@ RUN cabal update
 # Build mctrace
 RUN ./build.sh
 
+# Build examples for X86
+RUN make -C mctrace/tests/full
 # Build examples for PPC
 RUN make -C mctrace/tests/full ARCH=PPC
 
