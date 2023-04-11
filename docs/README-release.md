@@ -140,7 +140,7 @@ demonstration can be instrumented with the following `mctrace` command:
 mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
    --output=/tmp/read-write-syscall-PPC.instrumented \
    --library=/mctrace-test/examples/library/PPC/platform_impl.o \
-   --var-mapping=/tmp/read-write-syscall-PPC.mapping.json \
+   --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.json \
    --script=/mctrace-test/examples/eval/write-timing-probe.d
 ```
 
