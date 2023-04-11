@@ -55,7 +55,7 @@ RUN \
   apt-get update && \
   apt-get upgrade -y
 
-RUN apt-get install -y musl-tools make python3 qemu-user qemu-user-binfmt
+RUN apt-get install -y musl-tools make python3 qemu-user qemu-user-binfmt vim less
 
 # Copy the minimal amount of files we need to get mctrace running
 COPY --from=base \
