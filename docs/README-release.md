@@ -1,4 +1,5 @@
-# Introduction
+Introduction
+============
 
 The MCTrace tool enables instrumentation of binaries in order to
 collect fine-grained tracing information. It provides functionality
@@ -7,41 +8,8 @@ operating system support. The input language of MCTrace is the DTrace
 language, but it currently supports a subset of the probes, actions,
 and language features supported by DTrace.
 
-# Features of This Demonstration
-
-This demonstration includes a small collection of statically-linked
-PowerPC binaries and a selection of probes that can be used to
-instrument them. The current demonstration has the following
-limitations:
-
- - At this time, MCTrace supports only statically-linked input binaries.
- - The binaries run in Linux userspace. Future work will involve
-   supporting "bare-metal" PowerPC programs.
- - The only DTrace built-in variable currently supported is `timestamp`.
-   Future work will include support for `ucaller`, a `copy` subroutine,
-   and an *explicit* send action for writing data to a platform-specific
-   location.
- - While swapping Platform API implementations is fully supported, the
-   implementations are subject to the following restrictions:
-   - Functions in the Platform API implementation must be self-contained
-     and cannot call other functions even in the same object file.
-   - Functions cannot make use of global variables
-
-   We expect to relax part of these restrictions in a future version.
-
-# Setting up MCtrace
-
-A self-contained version of MCTrace is included in this folder as a
-docker image. To load and run the image:
-
-```
-docker image load -i mctrace.tar
-docker run -it -w /mctrace-test mctrace
-```
-
-This should leave you in a bash shell in the directory `/mctrace-test`.
-
-# The MCTrace Docker Image
+The MCTrace Docker Image
+========================
 
 The current version of MCTrace is capable of instrumenting PowerPC
 binaries.
@@ -56,39 +24,130 @@ contains sources and binaries for a few test programs. We have also
 included a few binaries from a statically compiled version of GNU
 coreutils in `/mctrace-test/examples/binaries`.
 
-MCTrace has been architected to work on binaries across multiple
-architectures and platforms. In order to abstract away the details
-of the underlying platform, while supporting platform specific
-functionality (e.g. memory allocation, timestamps) and platform-specific
-data exfiltration (e.g. publishing data on a CAN bus), MCTrace specifies
-a "Platform API" that must be implemented for each platform. The API
-is essentially a collection of functions and an implementation must be
-provided as a single object file to the `instrument` command of MCTrace.
+How MCTrace Works
+=================
 
-For testing purposes, a simple platform API implementation is available
-at `/mctrace-test/examples/library/PPC` and includes both source and
-object code.
+Using MCTrace requires:
 
-For more details on the Platform API that must be implemented in order
-to use MCTrace, see `using-mctrace.md`.
+* An PowerPC ELF binary to instrument,
+* An object file implementing the MCTrace Platform API (see below), and
+* A Dtrace probe script containing the probes that will be used to
+  modify the provided ELF binary.
 
-# Using MCTrace
+MCTrace works by modifying the input binary to insert calls to Dtrace
+probes at the points described in the Dtrace probe script. Some Dtrace
+language features that MCTrace supports need access to platform-specific
+functionality (such as memory allocation or data exfiltration). This
+set of platform-specific functions that MCTrace needs are called the
+"Platform API." To use MCTrace, an object file implementing the Platform
+API must be provided. A complete implementation of the Platform API
+must provide implementations of all of the functions the in header file
+`examples/library/include/platform_api.h` provided in this distribution.
+Once compiled, the platform API implementation can be provided to the
+`mctrace` as the `--library` argument when invoking the `mctrace` tool.
 
-To instrument a binary with a probe, execute:
+For demonstration purposes, a simple platform API implementation
+for PowerPC Linux user space is available in the Docker image at
+`/mctrace-test/examples/library/PPC` and includes both source and object
+code.
 
-    mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
-       --output=/tmp/read-write-syscall-PPC.instrumented \
-       --library=/mctrace-test/examples/library/PPC/platform_impl.o \
-       --var-mapping=/tmp/read-write-syscall-PPC.mapping.json \
-       --script=/mctrace-test/examples/eval/write-timing-probe.d
+Supported Dtrace API
+--------------------
+
+MCTrace uses the Dtrace language as the means for expressing how it
+should modify its input binary. While MCTrace does not implement all of
+the Dtrace language, some core Dtrace language features are supported:
+
+* Probe pattern matching
+* Probe descriptions
+* Global variables
+* The `timestamp` variable
+
+Example Dtrace probe scripts demonstrating MCTrace's features can be
+found in `examples/eval/` in this distribution.
+
+Features and Limitations of This Demonstration
+==============================================
+
+This demonstration includes a small collection of statically-linked
+PowerPC binaries and a selection of probes that can be used to
+instrument them. The current demonstration has the following
+limitations:
+
+ - At this time, MCTrace supports only statically-linked input binaries.
+ - The binaries run in Linux userspace. Future work will involve
+   supporting "bare-metal" PowerPC programs.
+ - The only DTrace built-in variable currently supported is `timestamp`.
+   Future work will include support for `ucaller`, a `copy` subroutine,
+   and an *explicit* send action for writing data to a platform-specific
+   location.
+ - Platform API implementations are subject to the following
+   restrictions:
+   - Functions in the Platform API implementation must be self-contained
+     and cannot call other functions even in the same object file.
+   - Functions cannot make use of global variables.
+
+   We expect to relax part of these restrictions in a future version.
+
+Starting This Demonstration
+===========================
+
+This document is provided with a self-contained version of MCTrace as a
+Docker image. To load and run the image, run the following commands:
+
+```
+docker image load -i mctrace.tar
+docker run -it -w /mctrace-test mctrace
+```
+
+This will drop you into a bash shell within the Docker container in the
+directory `/mctrace-test` where you can use `mctrace` to instrument
+binaries. We discuss the details of the `mctrace` tool in the following
+section.
+
+Using MCTrace
+=============
+
+MCTrace is run as follows:
+
+```
+mctrace instrument
+    --binary=<path to elf binary>
+    --output=<output file path>
+    --library=<platform API implementation object file>
+    --var-mapping=<output variable mapping JSON file path>
+    --script=<input file path to Dtrace probe script>
+```
+
+For example,
+
+```
+mctrace instrument
+    --binary=my_program
+    --output=my_program.instrumented
+    --library=my_platform.o
+    --var-mapping=mapping.json
+    --script=my_dtrace_probes.d
+```
+
+For example, the `read-write-syscall` binary provided in this
+demonstration can be instrumented with the following `mctrace` command:
+
+```
+mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
+   --output=/tmp/read-write-syscall-PPC.instrumented \
+   --library=/mctrace-test/examples/library/PPC/platform_impl.o \
+   --var-mapping=/tmp/read-write-syscall-PPC.mapping.json \
+   --script=/mctrace-test/examples/eval/write-timing-probe.d
+```
 
 - The `--binary` and the `--script` options tell mctrace to instrument
-  the specified binary with the given probe script
-- The `--output` option specifies the name for the instrumented binary
+  the specified binary with the given probe script.
+- The `--output` option specifies the name for the instrumented binary.
 - The `--library` option specifies the path to the Platform API
-  implementation
+  implementation.
 - The `--var-mapping` option tells `mctrace` where to record metadata
-  that allows it to later interpret the collected telemetry
+  that allows it to later interpret the collected telemetry.
 
 The above command instruments the binary with probes that triggers
 at the start and end of the `write` function and computes timing
