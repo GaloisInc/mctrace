@@ -192,10 +192,10 @@ This produces output similar to the following:
     {"write_count":7,"write_elapsed":1257,"write_ts":1681222607714812555}
 
 - Note that `2>&1 >/dev/null` has the effect of piping the standard
-  error to the next command, while suppressing the standard output of
-  the command. This is not required for a simple program like this, but
-  is convenient when instrumenting programs that also produce standard
-  output.
+  error to the next command while suppressing the standard output of the
+  command. We do this because the PowerPC platform API implementation
+  writes `send()` data to `stderr` and we need that data to be piped to
+  the extractor script.
 
 - The `extractor.py` script offers a few other conveniences when
   extracting data from instrumented programs; for example it can produce
