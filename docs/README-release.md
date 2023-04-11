@@ -33,7 +33,7 @@ docker image. To load and run the image:
 
 ```
 docker image load -i mctrace.tar
-docker run -it -w /mctrace-test mctrace-local
+docker run -it -w /mctrace-test mctrace
 ```
 
 This should leave you in a bash shell in the directory `/mctrace-test`.
@@ -72,50 +72,54 @@ to use MCTrace, see `docs/using-mctrace.md`.
 
 To instrument a binary with a probe, execute:
 
-    mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall \
-       --output=/tmp/read-write-syscall.instrumented \
-       --library=/mctrace-test/examples/library/X86/platform_impl.o \
-       --var-mapping=/tmp/read-write-syscall.mapping.json \
-       --script=/mctrace-test/examples/eval/multiple-probe.d
+    mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
+       --output=/tmp/read-write-syscall-PPC.instrumented \
+       --library=/mctrace-test/examples/library/PPC/platform_impl.o \
+       --var-mapping=/tmp/read-write-syscall-PPC.mapping.json \
+       --script=/mctrace-test/examples/eval/write-timing-probe.d
 
 -   The `--binary` and the `--script` options tell mctrace to instrument
     the specified binary with the given probe script
 -   The `--output` option specifies the name for the instrumented binary
--   The `--library` option specifies the path to the library of support
-    functions
+-   The `--library` option specifies the path to the Platform API implementation
 -   The `--var-mapping` option tells `mctrace` where to record metadata
     that allows it to later interpret the collected telemetry
 
-The above command instruments the binary with probes that triggers at
-the start of a `read` or `write` function and counts the number of
-invocations. Note that the instrumentation command produces a
-significant amount of DEBUG logs, that can be ignored at the moment.
+The above command instruments the binary with probes that triggers at the start
+and end of the `write` function and computes timing information for the call.
+Note that the instrumentation command produces a significant amount of DEBUG
+logs, that can be ignored at the moment.
 
 In addition, and for demonstration purposes, each probe when triggered
-invokes the external support function `send` at the end of its
-execution. The current test implementation of `send` pushes the set of
-telemetry variables, in a compact binary format, to the standard error
-(a more canonical implementation on an embedded device might push data
-to a bus). A script `extractor.py` has been included with the image to
-help interpret this data.
+invokes the Platform API function `send` at the end of its
+execution. As mentioned above, an explicit `send` action will be implemented
+in a future version to allow probes to have more control over when data should be
+exfiltrated and this implicit call to `send` will be retired. The current test
+implementation of `send` pushes the set of telemetry variables, in a compact binary
+format, to the standard error (a more canonical implementation on an embedded device
+might push data to a bus). A script `extractor.py` has been included with the image
+to help interpret this data.
 
 To invoke the instrumented binary and extract data:
 
-    /tmp/read-write-syscall.instrumented 2>&1 >/dev/null | extractor.py /tmp/read-write-syscall.mapping.json --extract
+    /tmp/read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /tmp/read-write-syscall-PPC.mapping.json --extract --big-endian
 
-This should produce the following output:
+This should produce output similar to the following:
 
-    {"read_count":1,"write_count":0}
-    {"read_count":2,"write_count":0}
-    {"read_count":3,"write_count":0}
-    {"read_count":4,"write_count":0}
-    {"read_count":4,"write_count":1}
-    {"read_count":4,"write_count":2}
-    {"read_count":4,"write_count":3}
-    {"read_count":4,"write_count":4}
-    {"read_count":4,"write_count":5}
-    {"read_count":4,"write_count":6}
-    {"read_count":4,"write_count":7}
+    {"write_count":1,"write_elapsed":0,"write_ts":1681222607714558552}
+    {"write_count":1,"write_elapsed":162240,"write_ts":1681222607714740774}
+    {"write_count":2,"write_elapsed":0,"write_ts":1681222607714798744}
+    {"write_count":2,"write_elapsed":1740,"write_ts":1681222607714800756}
+    {"write_count":3,"write_elapsed":0,"write_ts":1681222607714801836}
+    {"write_count":3,"write_elapsed":1309,"write_ts":1681222607714803400}
+    {"write_count":4,"write_elapsed":0,"write_ts":1681222607714804181}
+    {"write_count":4,"write_elapsed":1344,"write_ts":1681222607714805742}
+    {"write_count":5,"write_elapsed":0,"write_ts":1681222607714806536}
+    {"write_count":5,"write_elapsed":1228,"write_ts":1681222607714807992}
+    {"write_count":6,"write_elapsed":0,"write_ts":1681222607714808768}
+    {"write_count":6,"write_elapsed":1222,"write_ts":1681222607714810214}
+    {"write_count":7,"write_elapsed":0,"write_ts":1681222607714811076}
+    {"write_count":7,"write_elapsed":1257,"write_ts":1681222607714812555}
 
 -   Note that `2>&1 >/dev/null` has the effect of piping the standard
     error to the next command, while suppressing the standard output of
@@ -128,7 +132,7 @@ This should produce the following output:
     produce columnar outputs and filter columns. `extractor.py --help`
     should detail these options.
 
--   The table below list a few other binaries for PowerPC and X86-64 as well
+-   The table below lists a few other binaries for PowerPC and X86-64 as well
     some example probes to instrument each with. Note that many other combinations of
     example programs and probes can work together; the full list of combinations can
     be found in the [tests `Makefile`](../mctrace/tests/full/Makefile).
