@@ -8,22 +8,6 @@ operating system support. The input language of MCTrace is the DTrace
 language, but it currently supports a subset of the probes, actions,
 and language features supported by DTrace.
 
-The MCTrace Docker Image
-========================
-
-The current version of MCTrace is capable of instrumenting PowerPC
-binaries.
-
-The docker image contains a few PowerPC test programs and example
-probes that can be used to exercise MCTrace. In particular the folder
-`/mctrace-test/examples/eval` contains a collection of probes primarily
-derived from those provided to us by WebSensing (the probes have been
-modified slightly after discussions with WebSensing to fit the currently
-supported DTrace syntax in MCTrace), `/mctrace-test/examples/full`
-contains sources and binaries for a few test programs. We have also
-included a few binaries from a statically compiled version of GNU
-coreutils in `/mctrace-test/examples/binaries`.
-
 How MCTrace Works
 =================
 
@@ -103,7 +87,26 @@ docker run -it -w /mctrace-test mctrace
 This will drop you into a bash shell within the Docker container in the
 directory `/mctrace-test` where you can use `mctrace` to instrument
 binaries. We discuss the details of the `mctrace` tool in the following
-section.
+sections.
+
+The MCTrace Docker Image
+========================
+
+The current version of MCTrace is capable of instrumenting PowerPC
+binaries.
+
+The docker image provided with this README contains PowerPC test
+programs and example probes that can be used to exercise MCTrace.
+Important folders are as follows:
+
+ * `/mctrace-test/examples/eval` contains a collection of probes
+   primarily derived from those provided to us by WebSensing. The probes
+   have been modified slightly after discussions with WebSensing to fit
+   the currently supported DTrace syntax in MCTrace.
+ * `/mctrace-test/examples/full` contains source code and binaries for
+   bundled test programs.
+ * `/mctrace-test/examples/binaries` contains binaries from a statically
+   compiled version of GNU coreutils for use with `mctrace`.
 
 Using MCTrace
 =============
