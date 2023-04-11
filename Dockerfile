@@ -53,12 +53,20 @@ RUN \
   apt-get update && \
   apt-get upgrade -y
 
-RUN apt-get install -y musl-tools make qemu-user qemu-user-binfmt
+RUN apt-get install -y musl-tools make python3 qemu-user qemu-user-binfmt
 
-# Copy the minimal amount of files we need to get this running
+# Copy the minimal amount of files we need to get mctrace running
 COPY --from=base \
     ${SOURCE_MCTRACE_ROOT}/dist-newstyle/build/x86_64-linux/ghc-8.10.7/mctrace-0.1.0.0/x/mctrace/build/mctrace/mctrace \
     ${TARGET_MCTRACE_BIN}/mctrace
+
+COPY --from=base /lib/x86_64-linux-gnu/libLLVM-12.so.1 /lib/x86_64-linux-gnu/libLLVM-12.so.1
+COPY --from=base /lib/x86_64-linux-gnu/libedit.so.2 /lib/x86_64-linux-gnu/libedit.so.2
+COPY --from=base /lib/x86_64-linux-gnu/libxml2.so.2 /lib/x86_64-linux-gnu/libxml2.so.2
+COPY --from=base /lib/x86_64-linux-gnu/libbsd.so.0 /lib/x86_64-linux-gnu/libbsd.so.0
+COPY --from=base /lib/x86_64-linux-gnu/libicuuc.so.70 /lib/x86_64-linux-gnu/libicuuc.so.70
+COPY --from=base /lib/x86_64-linux-gnu/libmd.so.0 /lib/x86_64-linux-gnu/libmd.so.0
+COPY --from=base /lib/x86_64-linux-gnu/libicudata.so.70 /lib/x86_64-linux-gnu/libicudata.so.70
 
 # Copy example probes and binaries
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/mctrace/tests /${TARGET_MCTRACE_ROOT}/examples
@@ -70,12 +78,9 @@ COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/README-release.md /${TARGET_MCTRACE
 # Copy extractor script
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/scripts/extractor.py ${TARGET_MCTRACE_BIN}
 
-COPY --from=base /lib/x86_64-linux-gnu/libLLVM-12.so.1 /lib/x86_64-linux-gnu/libLLVM-12.so.1
-COPY --from=base /lib/x86_64-linux-gnu/libedit.so.2 /lib/x86_64-linux-gnu/libedit.so.2
-COPY --from=base /lib/x86_64-linux-gnu/libxml2.so.2 /lib/x86_64-linux-gnu/libxml2.so.2
-COPY --from=base /lib/x86_64-linux-gnu/libbsd.so.0 /lib/x86_64-linux-gnu/libbsd.so.0
-COPY --from=base /lib/x86_64-linux-gnu/libicuuc.so.70 /lib/x86_64-linux-gnu/libicuuc.so.70
-COPY --from=base /lib/x86_64-linux-gnu/libmd.so.0 /lib/x86_64-linux-gnu/libmd.so.0
-COPY --from=base /lib/x86_64-linux-gnu/libicudata.so.70 /lib/x86_64-linux-gnu/libicudata.so.70
+# Copy powerpc musl-gcc compiler
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/musl-gcc/output ${TARGET_MCTRACE_BIN}/ppc-musl-gcc
 
-ENV PATH=${PATH}:${TARGET_MCTRACE_BIN}
+# Adjust paths to bring useful tools on to the path
+ENV PATH=${PATH}:${TARGET_MCTRACE_BIN}:${TARGET_MCTRACE_BIN}/ppc-musl-gcc/bin
+
