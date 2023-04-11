@@ -80,7 +80,9 @@ function install_system_packages {
         autopoint \
         bison \
         gperf \
-        texinfo
+        texinfo \
+        autoconf \
+        automake
 }
 
 function install_ghcup {
