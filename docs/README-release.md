@@ -174,7 +174,7 @@ To invoke the instrumented binary and extract data:
 
     ./read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /mctrace-tests/examples/full/read-write-syscall-PPC.json --extract --big-endian
 
-This should produce output similar to the following:
+This produces output similar to the following:
 
     {"write_count":1,"write_elapsed":0,"write_ts":1681222607714558552}
     {"write_count":1,"write_elapsed":162240,"write_ts":1681222607714740774}
