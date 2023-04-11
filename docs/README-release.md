@@ -9,18 +9,22 @@ and language features supported by DTrace.
 
 # Features of This Demonstration
 
-This demonstration includes a small collection of statically-linked PowerPC binaries
-and a selection of probes that can be used to instrument them. The current demonstration has the
-following limitations:
+This demonstration includes a small collection of statically-linked
+PowerPC binaries and a selection of probes that can be used to
+instrument them. The current demonstration has the following
+limitations:
+
  - At this time, MCTrace supports only statically-linked input binaries.
- - The binaries run in Linux userspace. Future work will involve supporting "bare-metal" PowerPC programs.
- - The only DTrace built-in variable currently supported is `timestamp`. Future work will include support for
-   `ucaller`, a `copy` subroutine, and an *explicit* send action for writing data to a platform-specific
+ - The binaries run in Linux userspace. Future work will involve
+   supporting "bare-metal" PowerPC programs.
+ - The only DTrace built-in variable currently supported is `timestamp`.
+   Future work will include support for `ucaller`, a `copy` subroutine,
+   and an *explicit* send action for writing data to a platform-specific
    location.
- - While swapping Platform API implementations is fully supported, the implementations are subject to
-   the following restrictions:
-   - Functions in the Platform API implementation must be self-contained and cannot call other functions
-     even in the same object file.
+ - While swapping Platform API implementations is fully supported, the
+   implementations are subject to the following restrictions:
+   - Functions in the Platform API implementation must be self-contained
+     and cannot call other functions even in the same object file.
    - Functions cannot make use of global variables
 
    We expect to relax part of these restrictions in a future version.
@@ -52,19 +56,18 @@ contains sources and binaries for a few test programs. We have also
 included a few binaries from a statically compiled version of GNU
 coreutils in `/mctrace-test/examples/binaries`.
 
+MCTrace has been architected to work on binaries across multiple
+architectures and platforms. In order to abstract away the details
+of the underlying platform, while supporting platform specific
+functionality (e.g. memory allocation, timestamps) and platform-specific
+data exfiltration (e.g. publishing data on a CAN bus), MCTrace specifies
+a "Platform API" that must be implemented for each platform. The API
+is essentially a collection of functions and an implementation must be
+provided as a single object file to the `instrument` command of MCTrace.
 
-MCTrace has been architected to work on binaries across multiple architectures
-and platforms. In order to abstract away the details of the underlying platform,
-while supporting platform specific functionality (e.g. memory
-allocation, timestamps) and platform-specific data exfiltration (e.g.
-publishing data on a CAN bus), MCTrace specifies a "Platform API" that must be
-implemented for each platform. The API is essentially a collection of functions and
-an implementation must be provided as a single object file to the `instrument` command
-of MCTrace.
-
-For testing purposes, a simple platform API
-implementation is available at `/mctrace-test/examples/library/PPC`
-and includes both source and object code.
+For testing purposes, a simple platform API implementation is available
+at `/mctrace-test/examples/library/PPC` and includes both source and
+object code.
 
 For more details on the Platform API that must be implemented in order
 to use MCTrace, see `using-mctrace.md`.
@@ -79,27 +82,29 @@ To instrument a binary with a probe, execute:
        --var-mapping=/tmp/read-write-syscall-PPC.mapping.json \
        --script=/mctrace-test/examples/eval/write-timing-probe.d
 
--   The `--binary` and the `--script` options tell mctrace to instrument
-    the specified binary with the given probe script
--   The `--output` option specifies the name for the instrumented binary
--   The `--library` option specifies the path to the Platform API implementation
--   The `--var-mapping` option tells `mctrace` where to record metadata
-    that allows it to later interpret the collected telemetry
+- The `--binary` and the `--script` options tell mctrace to instrument
+  the specified binary with the given probe script
+- The `--output` option specifies the name for the instrumented binary
+- The `--library` option specifies the path to the Platform API
+  implementation
+- The `--var-mapping` option tells `mctrace` where to record metadata
+  that allows it to later interpret the collected telemetry
 
-The above command instruments the binary with probes that triggers at the start
-and end of the `write` function and computes timing information for the call.
-Note that the instrumentation command produces a significant amount of DEBUG
-logs, that can be ignored at the moment.
+The above command instruments the binary with probes that triggers
+at the start and end of the `write` function and computes timing
+information for the call. Note that the instrumentation command produces
+a significant amount of DEBUG logs, that can be ignored at the moment.
 
 In addition, and for demonstration purposes, each probe when triggered
-invokes the Platform API function `send` at the end of its
-execution. As mentioned above, an explicit `send` action will be implemented
-in a future version to allow probes to have more control over when data should be
-exfiltrated and this implicit call to `send` will be retired. The current test
-implementation of `send` pushes the set of telemetry variables, in a compact binary
-format, to the standard error (a more canonical implementation on an embedded device
-might push data to a bus). A script `extractor.py` has been included with the image
-to help interpret this data.
+invokes the Platform API function `send` at the end of its execution.
+As mentioned above, an explicit `send` action will be implemented in
+a future version to allow probes to have more control over when data
+should be exfiltrated and this implicit call to `send` will be retired.
+The current test implementation of `send` pushes the set of telemetry
+variables, in a compact binary format, to the standard error (a more
+canonical implementation on an embedded device might push data to a
+bus). A script `extractor.py` has been included with the image to help
+interpret this data.
 
 To invoke the instrumented binary and extract data:
 
@@ -122,21 +127,22 @@ This should produce output similar to the following:
     {"write_count":7,"write_elapsed":0,"write_ts":1681222607714811076}
     {"write_count":7,"write_elapsed":1257,"write_ts":1681222607714812555}
 
--   Note that `2>&1 >/dev/null` has the effect of piping the standard
-    error to the next command, while suppressing the standard output of
-    the command. This is not required for a simple program like this,
-    but is convenient when instrumenting programs that also produce
-    standard output.
+- Note that `2>&1 >/dev/null` has the effect of piping the standard
+  error to the next command, while suppressing the standard output of
+  the command. This is not required for a simple program like this, but
+  is convenient when instrumenting programs that also produce standard
+  output.
 
--   The `extractor.py` script offers a few other conveniences when
-    extracting data from instrumented programs; for example it can
-    produce columnar outputs and filter columns. `extractor.py --help`
-    should detail these options.
+- The `extractor.py` script offers a few other conveniences when
+  extracting data from instrumented programs; for example it can produce
+  columnar outputs and filter columns. `extractor.py --help` should
+  detail these options.
 
--   The table below lists a few other binaries for PowerPC and X86-64 as well
-    some example probes to instrument each with. Note that many other combinations of
-    example programs and probes can work together; the full list of combinations can
-    be found in the [tests `Makefile`](../mctrace/tests/full/Makefile).
+- The table below lists a few other binaries for PowerPC as well some
+  example probes that can be used to instrument each binary. Note that
+  many other combinations of example programs and probes can work
+  together; the full list of combinations can be found in the
+  [tests `Makefile`](../mctrace/tests/full/Makefile).
 
     | Binaries                                                                                           | Probe                                       |
     | ---------------------------------------------------------------------------------------------------| ------------------------------------------- |
@@ -146,5 +152,5 @@ This should produce output similar to the following:
     | `examples/binaries/PPC/cat`                                                                        | `examples/eval/cat-probe.d`                 |
     | `examples/binaries/PPC/sha256sum`                                                                  | `examples/eval/sha256sum-probe.d`           |
 
-    The first two probes above measure timing across different calls,
-    while the third one instruments *all* functions in the binary.
+  The first two probes above measure timing across different calls,
+  while the third one instruments *all* functions in the binary.
