@@ -13,7 +13,7 @@ How MCTrace Works
 
 Using MCTrace requires:
 
-* An PowerPC ELF binary to instrument,
+* An PowerPC or `x86_64` ELF binary to instrument,
 * An object file implementing the MCTrace Platform API (see below), and
 * A Dtrace probe script containing the probes that will be used to
   modify the provided ELF binary.
@@ -30,10 +30,11 @@ must provide implementations of all of the functions the in header file
 Once compiled, the platform API implementation can be provided to the
 `mctrace` as the `--library` argument when invoking the `mctrace` tool.
 
-For demonstration purposes, a simple platform API implementation
-for PowerPC Linux user space is available in the Docker image at
-`/mctrace-test/examples/library/PPC` and includes both source and object
-code.
+For demonstration purposes, simple platform API implementations
+for PowerPC and `x86_64` Linux user space are available in
+the Docker image at `/mctrace-test/examples/library/PPC` and
+`/mctrace-test/examples/library/X86`, respectively, and include both
+source and object code.
 
 Supported Dtrace API
 --------------------
@@ -53,14 +54,16 @@ found in `examples/eval/` in this distribution.
 Features and Limitations of This Demonstration
 ----------------------------------------------
 
-This demonstration includes a small collection of statically-linked
-PowerPC binaries and a selection of probes that can be used to
-instrument them. The current demonstration has the following
+In addition to our own example programs, this demonstration includes
+a small collection of statically-linked PowerPC and `x86_64` binaries
+from the `coreutils` distribution and a selection of probes that can be
+used to instrument them. The current demonstration has the following
 limitations:
 
  - At this time, MCTrace supports only statically-linked input binaries.
- - The binaries run in Linux userspace. Future work will involve
-   supporting "bare-metal" PowerPC programs.
+ - The binaries run in Linux userspace for their respective
+   architectures. Future work will involve supporting "bare-metal"
+   PowerPC programs.
  - The only DTrace built-in variable currently supported is `timestamp`.
    Future work will include support for `ucaller`, a `copy` subroutine,
    and an *explicit* send action for writing data to a platform-specific
@@ -92,11 +95,11 @@ sections.
 The MCTrace Docker Image
 ------------------------
 
-The current version of MCTrace is capable of instrumenting PowerPC
-binaries.
+The current version of MCTrace is capable of instrumenting PowerPC and
+`x86_64` binaries.
 
-The docker image provided with this README contains PowerPC test
-programs and example probes that can be used to exercise MCTrace.
+The docker image provided with this README contains PowerPC and `x86_64`
+test programs and example probes that can be used to exercise MCTrace.
 Important folders are as follows:
 
  * `/mctrace-test/examples/eval` contains a collection of probes
@@ -193,7 +196,7 @@ This produces output similar to the following:
 
 - Note that `2>&1 >/dev/null` has the effect of piping the standard
   error to the next command while suppressing the standard output of the
-  command. We do this because the PowerPC platform API implementation
+  command. We do this because the provided platform API implementations
   writes `send()` data to `stderr` and we need that data to be piped to
   the extractor script.
 
@@ -202,10 +205,10 @@ This produces output similar to the following:
   columnar outputs and filter columns. See `extractor.py --help` for
   details on these options.
 
-- The table below lists a few other binaries for PowerPC as well some
-  example probes that can be used to instrument each binary. Note
-  that many other combinations of example programs and probes can
-  work together; the full list of combinations can be found in
+- The table below lists a few other binaries for PowerPC and `x86_64` as
+  well some example probes that can be used to instrument each binary.
+  Note that many other combinations of example programs and probes
+  can work together; the full list of combinations can be found in
   `examples/full/Makefile`.
 
     | Binaries                                                                                           | Probe                                       |
