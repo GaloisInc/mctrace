@@ -40,7 +40,7 @@ define do_instrument
 	--binary=$2-$(ARCH) \
 	--output=$2-$(ARCH).$3.inst \
 	--library=../library/$(ARCH)/platform_impl.o \
-	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
+	--var-mapping=$2-$(ARCH).$3.inst.json \
 	--script=$1
 endef
 
