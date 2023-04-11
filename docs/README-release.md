@@ -170,7 +170,7 @@ interpret this data.
 
 To invoke the instrumented binary and extract data:
 
-    /tmp/read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /tmp/read-write-syscall-PPC.mapping.json --extract --big-endian
+    /tmp/read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /tmp/read-write-syscall-PPC.json --extract --big-endian
 
 This should produce output similar to the following:
 
