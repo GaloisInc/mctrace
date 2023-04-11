@@ -199,8 +199,8 @@ This produces output similar to the following:
 
 - The `extractor.py` script offers a few other conveniences when
   extracting data from instrumented programs; for example it can produce
-  columnar outputs and filter columns. `extractor.py --help` should
-  detail these options.
+  columnar outputs and filter columns. See `extractor.py --help` for
+  details on these options.
 
 - The table below lists a few other binaries for PowerPC as well some
   example probes that can be used to instrument each binary. Note
