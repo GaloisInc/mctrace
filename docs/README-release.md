@@ -133,12 +133,14 @@ mctrace instrument
     --script=my_dtrace_probes.d
 ```
 
-For example, the `read-write-syscall` binary provided in this
-demonstration can be instrumented with the following `mctrace` command:
+For example, the `read-write-syscall-PPC.inst` binary in this
+distribution is the instrumented version of the PowerPC build of
+`read-write-syscall` and was instrumented with the following `mctrace`
+command:
 
 ```
-mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
-   --output=/tmp/read-write-syscall-PPC.instrumented \
+mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall \
+   --output=/mctrace-test/examples/full/read-write-syscall-PPC.inst \
    --library=/mctrace-test/examples/library/PPC/platform_impl.o \
    --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.json \
    --script=/mctrace-test/examples/eval/write-timing-probe.d
@@ -170,7 +172,7 @@ interpret this data.
 
 To invoke the instrumented binary and extract data:
 
-    /tmp/read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /tmp/read-write-syscall-PPC.json --extract --big-endian
+    ./read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /mctrace-tests/examples/full/read-write-syscall-PPC.json --extract --big-endian
 
 This should produce output similar to the following:
 
