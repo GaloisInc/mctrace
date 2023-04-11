@@ -91,7 +91,8 @@ instrument_binaries_PPC:
 	$(call do_instrument_binary,../eval/sha256sum.probe.d,sha256sum,1)
 
 instrument_binaries_X86:
-	# We don't have anything for X86 as of now
+	$(call do_instrument_binary,../eval/cat.probe.d,cat,1)
+	$(call do_instrument_binary,../eval/sha256sum.probe.d,sha256sum,1)
 
 instrument_binaries: $(if $(filter PPC,$(ARCH)),instrument_binaries_PPC,instrument_binaries_X86)
 
