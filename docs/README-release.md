@@ -39,11 +39,10 @@ This should leave you in a bash shell in the directory `/mctrace-test`.
 
 # The MCTrace Docker Image
 
-The current version of MCTrace is capable of instrumenting x86-64
-binaries. A port to PowerPC is currently in progress and is expected to
-be available soon.
+The current version of MCTrace is capable of instrumenting PowerPC
+binaries.
 
-The docker image contains a few x86-64 test programs and example
+The docker image contains a few PowerPC test programs and example
 probes that can be used to exercise MCTrace. In particular the folder
 `/mctrace-test/examples/eval` contains a collection of probes primarily
 derived from those provided to us by WebSensing (the probes have been
@@ -51,18 +50,21 @@ modified slightly after discussions with WebSensing to fit the currently
 supported DTrace syntax in MCTrace), `/mctrace-test/examples/full`
 contains sources and binaries for a few test programs. We have also
 included a few binaries from a statically compiled version of GNU
-coreutils in `/mctrace-test/examples/extras`.
+coreutils in `/mctrace-test/examples/binaries`.
 
-MCTrace has been architected to require users to inject a collection
-of support functions in to the binary that MCTrace needs in order to
-produce a working binary. This collection of support functions is
-called the Platform API. The platform API functions allow MCTrace to
-delegate platform-specific functionality (e.g., memory allocation,
-timestamps) and support platform-specific data exfiltration (e.g.
-publishing data on a CAN bus). For testing purposes, simple platform API
-implementations are available at `/mctrace-test/examples/library/X86`
-and `/mctrace-test/examples/library/PPC` and include both source and
-object code.
+
+MCTrace has been architected to work on binaries across multiple architectures
+and platforms. In order to abstract away the details of the underlying platform,
+while supporting platform specific functionality (e.g. memory
+allocation, timestamps) and platform-specific data exfiltration (e.g.
+publishing data on a CAN bus), MCTrace specifies a "Platform API" that must be
+implemented for each platform. The API is essentially a collection of functions and
+an implementation must be provided as a single object file to the `instrument` command
+of MCTrace.
+
+For testing purposes, a simple platform API
+implementation is available at `/mctrace-test/examples/library/PPC`
+and includes both source and object code.
 
 For more details on the Platform API that must be implemented in order
 to use MCTrace, see `docs/using-mctrace.md`.
