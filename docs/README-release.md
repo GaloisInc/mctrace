@@ -136,17 +136,17 @@ mctrace instrument
     --script=my_dtrace_probes.d
 ```
 
-For example, the `read-write-syscall-PPC.1.inst` binary in this
-distribution is the instrumented version of the PowerPC build of
-`read-write-syscall` and was instrumented with the following `mctrace`
+For example, the `read-write-syscall-PPC.4.inst` binary in this
+distribution is the instrumented version of the PowerPC binary
+`read-write-syscall-PPC` and was instrumented with the following `mctrace`
 command:
 
 ```
-mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall \
-   --output=/mctrace-test/examples/full/read-write-syscall-PPC.1.inst \
+mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
+   --output=/mctrace-test/examples/full/read-write-syscall-PPC.4.inst \
    --library=/mctrace-test/examples/library/PPC/platform_impl.o \
-   --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.1.json \
-   --script=/mctrace-test/examples/eval/single-add-probe.d
+   --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.4.json \
+   --script=/mctrace-test/examples/eval/write-timing-probe.d
 ```
 
 - The `--binary` and the `--script` options tell mctrace to instrument
@@ -175,7 +175,8 @@ interpret this data.
 
 To invoke the instrumented binary and extract data:
 
-    ./read-write-syscall-PPC.instrumented 2>&1 >/dev/null | extractor.py /mctrace-tests/examples/full/read-write-syscall-PPC.json --extract --big-endian
+    /mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1 >/dev/null | \
+        extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json --extract --big-endian
 
 This produces output similar to the following:
 
@@ -200,6 +201,10 @@ This produces output similar to the following:
   writes `send()` data to `stderr` and we need that data to be piped to
   the extractor script.
 
+- When extracting telemetry data from instrumented PowerPC binaries, the flag
+  `--big-endian` must be passed to the extractor script as in the command above.
+  The flag should be elided when working with `x86_64` binaries.
+
 - The `extractor.py` script offers a few other conveniences when
   extracting data from instrumented programs; for example it can produce
   columnar outputs and filter columns. See `extractor.py --help` for
@@ -216,8 +221,8 @@ This produces output similar to the following:
     | `examples/full/alloc-dealloc-fread-fwrite-PPC` <br> `examples/full/alloc-dealloc-fread-fwrite-X86` | `examples/eval/fopen-calloc-fclose-probe.d` |
     | `examples/full/slow-read-write-PPC` <br> `examples/full/slow-read-write-X86`                       | `examples/eval/write-timing-probe.d`        |
     | `examples/full/read-write-syscall-PPC` <br> `examples/full/read-write-syscall-X86`                 | `examples/eval/graph-probe.d`               |
-    | `examples/binaries/PPC/cat`                                                                        | `examples/eval/cat-probe.d`                 |
-    | `examples/binaries/PPC/sha256sum`                                                                  | `examples/eval/sha256sum-probe.d`           |
+    | `examples/binaries/PPC/cat` <br> `examples/binaries/X86/cat`                                       | `examples/eval/cat-probe.d`                 |
+    | `examples/binaries/PPC/sha256sum` <br> `examples/binaries/X86/sha256sum`                           | `examples/eval/sha256sum-probe.d`           |
 
   The first two probes above measure timing across different calls,
   while the third one instruments *all* functions in the binary.
