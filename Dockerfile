@@ -84,4 +84,5 @@ COPY --from=base ${SOURCE_MCTRACE_ROOT}/musl-gcc/output ${TARGET_MCTRACE_BIN}/pp
 
 # Adjust paths to bring useful tools on to the path
 ENV PATH=${PATH}:${TARGET_MCTRACE_BIN}:${TARGET_MCTRACE_BIN}/ppc-musl-gcc/bin
+ENV DOCKER=1
 

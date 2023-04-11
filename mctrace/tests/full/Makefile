@@ -6,8 +6,20 @@ PROGRAMS = read-syscall-$(ARCH) \
 	   slow-read-write-$(ARCH) \
 	   alloc-dealloc-fread-fwrite-$(ARCH)
 
+ifeq ($(DOCKER),1)
+    # In Docker, mctrace is in the path (See Dockerfile)
+    MCTRACE = mctrace
+else
+    MCTRACE = cabal exec mctrace
+endif
+
 ifeq ($(ARCH),PPC)
-    CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
+    ifeq ($(DOCKER),1)
+        # In Docker, the cross compiler is in the path (See Dockerfile)
+        CC = powerpc-linux-muslsf-gcc
+    else
+        CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
+    endif
 else ifeq ($(ARCH),X86)
     CC = musl-gcc
 else
@@ -36,7 +48,7 @@ alloc-dealloc-fread-fwrite-$(ARCH): alloc-dealloc-fread-fwrite.c
 ######################################################################
 
 define do_instrument
-    cabal exec mctrace -- instrument \
+    $(MCTRACE) -- instrument \
 	--binary=$2-$(ARCH) \
 	--output=$2-$(ARCH).$3.inst \
 	--library=../library/$(ARCH)/platform_impl.o \
@@ -71,7 +83,7 @@ instrument_tests:
 ######################################################################
 
 define do_instrument_binary
-    cabal exec mctrace -- instrument \
+    $(MCTRACE) -- instrument \
 	--binary=../binaries/$(ARCH)/$2 \
 	--output=$2-$(ARCH).$3.inst \
 	--library=../library/$(ARCH)/platform_impl.o \
