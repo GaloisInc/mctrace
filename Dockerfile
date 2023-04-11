@@ -74,9 +74,8 @@ COPY --from=base /lib/x86_64-linux-gnu/libicudata.so.70 /lib/x86_64-linux-gnu/li
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/mctrace/tests /${TARGET_MCTRACE_ROOT}/examples
 
 # Copy documentation
-RUN mkdir -p /${TARGET_MCTRACE_ROOT}/docs
-COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/using-mctrace.md /${TARGET_MCTRACE_ROOT}/docs/
-COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/README-release.md /${TARGET_MCTRACE_ROOT}/docs/
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/using-mctrace.md /${TARGET_MCTRACE_ROOT}/
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/README-release.md /${TARGET_MCTRACE_ROOT}/README.md
 
 # Copy extractor script
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/scripts/extractor.py ${TARGET_MCTRACE_BIN}

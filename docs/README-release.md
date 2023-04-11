@@ -67,7 +67,7 @@ implementation is available at `/mctrace-test/examples/library/PPC`
 and includes both source and object code.
 
 For more details on the Platform API that must be implemented in order
-to use MCTrace, see `docs/using-mctrace.md`.
+to use MCTrace, see `using-mctrace.md`.
 
 # Using MCTrace
 
