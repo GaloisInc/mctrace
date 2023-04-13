@@ -19,7 +19,11 @@ COREUTILS_REF=5891d28edebe229f1a6057275e281b10c1f2247b
 
 # Check for arguments
 if [[ -z "$1" ]]; then
-    echo "Usage $0 <install root>"
+    echo "Usage $0 <installation path>"
+    echo
+    echo "The installation path should be the path to a (potentially"
+    echo "non-existent) directory that this script should create in"
+    echo "which the compiler will be installed."
 fi
 
 INSTALL_ROOT=$(readlink -f "$1")
