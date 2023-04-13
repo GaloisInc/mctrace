@@ -30,7 +30,9 @@ INSTALL_ROOT=$(readlink -f "$1")
 
 # Check for compiler
 if [[ ! -x "$COMPILER" ]]; then
-    echo "Unable to find powerpc compiler at $COMPILER"
+    echo "Error: unable to find powerpc compiler at $COMPILER"
+    echo "Did you run dev_setup.sh?"
+    exit 1
 fi
 
 # We will work in a temporary directory
