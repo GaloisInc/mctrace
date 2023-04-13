@@ -33,7 +33,6 @@ if [[ ! -x "$COMPILER" ]]; then
     echo "Unable to find powerpc compiler at $COMPILER"
 fi
 
-
 # We will work in a temporary directory
 WORKING_DIR=$(mktemp -d)
 cd $WORKING_DIR
@@ -57,4 +56,3 @@ CC="$COMPILER" CFLAGS='-static' LDFLAGS='-static' ./configure --prefix="$INSTALL
 
 # Make and install
 make && make install
-
