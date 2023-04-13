@@ -37,6 +37,13 @@ fi
 
 # We will work in a temporary directory
 WORKING_DIR=$(mktemp -d)
+
+function remove_temp {
+    rm -rf $WORKING_DIR
+}
+
+trap remove_temp EXIT
+
 cd $WORKING_DIR
 echo "Working in $WORKING_DIR"
 
