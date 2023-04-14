@@ -72,6 +72,7 @@ function install_system_packages {
         libgmp-dev \
         zlib1g-dev \
         qemu-system-ppc \
+        qemu-system-arm \
         qemu-user-binfmt \
         wget \
         curl \
