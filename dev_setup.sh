@@ -160,6 +160,27 @@ function build_ppc_musl_compiler {
     fi
 }
 
+function build_arm_musl_compiler {
+    cd $HERE
+
+    if [ ! -f "$HERE/musl-gcc-arm/output/bin/arm-linux-musleabi-gcc" ]
+    then
+        notice "Cloning and building ARM GCC cross compiler (this will take a while)"
+
+        logged git clone $MUSL_CROSS_MAKE_REPO musl-gcc-arm
+        cd musl-gcc-arm
+        logged git checkout $MUSL_CROSS_MAKE_REF
+
+        logged cp -f config.mak.dist config.mak
+        echo "TARGET = arm-linux-musleabi" >> config.mak
+
+        logged make
+        logged make install
+    else
+        notice "ARM GCC cross compiler already built, skipping"
+    fi
+}
+
 function install_docker {
     if [ ! -z "$SKIP_DOCKER" ]
     then
@@ -210,6 +231,7 @@ install_ghcup
 symlink_cabal_config
 update_submodules
 build_ppc_musl_compiler
+build_arm_musl_compiler
 install_docker
 
 notice "Done."

@@ -6,3 +6,4 @@ cabal.project
 cabal.project.freeze
 .*.swp
 musl-gcc
+musl-gcc-arm
