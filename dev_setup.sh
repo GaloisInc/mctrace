@@ -139,7 +139,7 @@ function update_submodules {
     logged git submodule update --init
 }
 
-function build_musl_compiler {
+function build_ppc_musl_compiler {
     cd $HERE
 
     if [ ! -f "$HERE/musl-gcc/output/bin/powerpc-linux-muslsf-gcc" ]
@@ -209,7 +209,7 @@ install_system_packages
 install_ghcup
 symlink_cabal_config
 update_submodules
-build_musl_compiler
+build_ppc_musl_compiler
 install_docker
 
 notice "Done."
