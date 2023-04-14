@@ -7,3 +7,5 @@ cabal.project.freeze
 .*.swp
 musl-gcc
 musl-gcc-arm
+coreutils
+install-coreutils.log
