@@ -20,6 +20,12 @@ ifeq ($(ARCH),PPC)
     else
         CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
     endif
+else ifeq ($(ARCH),ARM)
+    ifeq ($(DOCKER),1)
+        CC = arm-linux-musleabi-gcc
+    else
+        CC = ../../../musl-gcc-arm/output/bin/arm-linux-musleabi-gcc
+    endif
 else ifeq ($(ARCH),X86)
     CC = musl-gcc
 else
@@ -110,4 +116,4 @@ instrument_binaries: $(if $(filter PPC,$(ARCH)),instrument_binaries_PPC,instrume
 
 clean:
 	find . -name '*.o' -delete
-	rm -f *.inst *-X86 *-PPC ../library/$(ARCH)/*.o
+	rm -f *.inst *-X86 *-PPC *-ARM ../library/$(ARCH)/*.o *.json
