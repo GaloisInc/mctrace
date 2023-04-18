@@ -5,4 +5,5 @@ slow-read-write
 *.inst
 *-X86
 *-PPC
+*-ARM
 *.json
