@@ -22,6 +22,7 @@ ifeq ($(ARCH),PPC)
     endif
 else ifeq ($(ARCH),ARM)
     ifeq ($(DOCKER),1)
+        # In Docker, the cross compiler is in the path (See Dockerfile)
         CC = arm-linux-musleabi-gcc
     else
         CC = ../../../musl-gcc-arm/output/bin/arm-linux-musleabi-gcc
