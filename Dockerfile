@@ -82,7 +82,10 @@ COPY --from=base ${SOURCE_MCTRACE_ROOT}/scripts/extractor.py ${TARGET_MCTRACE_BI
 # Copy powerpc musl-gcc compiler
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/musl-gcc/output ${TARGET_MCTRACE_BIN}/ppc-musl-gcc
 
+# Copy ARM musl-gcc compiler
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/musl-gcc-arm/output ${TARGET_MCTRACE_BIN}/arm-musl-gcc
+
 # Adjust paths to bring useful tools on to the path
-ENV PATH=${PATH}:${TARGET_MCTRACE_BIN}:${TARGET_MCTRACE_BIN}/ppc-musl-gcc/bin
+ENV PATH=${PATH}:${TARGET_MCTRACE_BIN}:${TARGET_MCTRACE_BIN}/ppc-musl-gcc/bin:${TARGET_MCTRACE_BIN}/arm-musl-gcc/bin
 ENV DOCKER=1
 
