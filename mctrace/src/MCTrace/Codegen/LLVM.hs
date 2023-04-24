@@ -116,7 +116,7 @@ globalVarOperand (GlobalStore storeOp) idx = do
 
 op :: GlobalStore
    -> ProbeSupportFunctions
-   -> UCallerPointer 
+   -> UCallerPointer
    -> Ctx.Assignment (C.Const IR.Operand) locals
    -> ST.Reg globals locals tp
    -> IRB.IRBuilderT (Builder globals) IR.Operand
@@ -183,7 +183,7 @@ compileStatement globals supportFnsOperand uCallerPointer locals stmt =
           (UCallerPointer uCaller) = uCallerPointer
       dst <- globalVarOperand globals globalIdx
       val <- provider (MB.BuiltinVarCompilerArgs supportFnsOp uCaller Nothing)
-      IRB.store dst 0 val 
+      IRB.store dst 0 val
 
 compileProbeBody :: GlobalStore
                  -> ProbeSupportFunctions
@@ -195,7 +195,7 @@ compileProbeBody globalOperands supportFnsOperand uCallerPointer localVars stmts
   localOperands <- Ctx.traverseWithIndex allocateLocal localVars
   mapM_ (compileStatement globalOperands supportFnsOperand uCallerPointer localOperands) stmts
   sendStatement globalOperands supportFnsOperand
-  
+
 sendStatement :: GlobalStore -> ProbeSupportFunctions -> IRB.IRBuilderT (Builder globals) ()
 sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunctions) = do
   fnAddr <- IRB.gep probeSupportFunctions [IRB.int32 sendFnIndex]
@@ -231,7 +231,7 @@ compileProbe (ST.Probe _descs _guard localVars stmts, fname) = do
   let uCaller = (pointerType (IRT.IntegerType 64), IRB.ParameterName (fromString "ucaller"))
   _ <- IRB.function (IR.mkName fname) [storage, supportFns, uCaller] IRT.VoidType $ \operands ->
     case operands of
-      [storageOp, supportFnsOp, uCallerOp] -> 
+      [storageOp, supportFnsOp, uCallerOp] ->
         compileProbeBody (GlobalStore storageOp) (ProbeSupportFunctions supportFnsOp) (UCallerPointer uCallerOp) localVars stmts
       _ -> MP.panic MP.LLVMCodegen "compileProbe" ["Impossible argument list"]
   return ()
