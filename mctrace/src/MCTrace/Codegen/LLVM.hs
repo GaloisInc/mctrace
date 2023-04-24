@@ -176,7 +176,7 @@ compileStatement globals supportFnsOperand uCallerPointer locals stmt =
       src <- globalVarOperand globals srcIdx
       dst <- globalVarOperand globals globalIdx
       val <- IRB.load src stackAlignment
-      IRB.store dst 0 val 
+      IRB.store dst 0 val
     ST.WriteGlobal globalIdx (ST.BuiltinVar builtin _) -> do
       let MB.BuiltinVarCompiler { MB.compile = provider } = MB.builtinVarCompilers Map.! builtin
           (ProbeSupportFunctions supportFnsOp) = supportFnsOperand
