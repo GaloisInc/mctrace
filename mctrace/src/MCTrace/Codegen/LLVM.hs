@@ -27,7 +27,6 @@ import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.String ( fromString )
 import           Data.Word ( Word32 )
-import qualified Debug.Trace as Trace
 import qualified LLVM.AST as IR
 import qualified LLVM.AST.AddrSpace as IRA
 import qualified LLVM.AST.Constant as IRC
@@ -308,7 +307,8 @@ withLLVMOptions (DE.SomeElf ehi) k =
       let features = Map.empty
       LLT.withTargetOptions $ \targetOpts -> do
         LLT.withTargetMachine t triple cpu features targetOpts LLR.Default LLC.Default LLCGO.Aggressive k
-    m -> Trace.trace "WTF" $ X.throwIO (ME.UnsupportedArchitecture m)
+    m ->
+      X.throwIO (ME.UnsupportedArchitecture m)
 
 
 {- Note [CodeGen Strategy]
