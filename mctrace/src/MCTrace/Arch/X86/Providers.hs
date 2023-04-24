@@ -139,7 +139,7 @@ matcherEntry
   -> MA.ProbeLocationAnalysisResult globals RX.X86_64
   -> R.SymbolicBlock RX.X86_64
   -> Maybe (MP.ProbeInserter RX.X86_64)
-matcherEntry probeSymAddr providerName symNames locationAnalysis symBlock = do
+matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
@@ -161,7 +161,7 @@ matcherExit
   -> MA.ProbeLocationAnalysisResult globals RX.X86_64
   -> R.SymbolicBlock RX.X86_64
   -> Maybe (MP.ProbeInserter RX.X86_64)
-matcherExit probeSymAddr providerName symNames locationAnalysis symBlock = do
+matcherExit probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.

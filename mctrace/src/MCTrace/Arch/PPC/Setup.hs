@@ -34,7 +34,7 @@ allocMemory
   -> R.SymbolicAddress RP.PPC32
   -> Word32
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-allocMemory repr allocFnSymAddress globalStoreSize =
+allocMemory _repr allocFnSymAddress globalStoreSize =
   i (D.Instruction D.LI (gpr 3 :< D.S16imm (fromIntegral globalStoreSize) :< Nil)) DLN.:|
   [ annotateInstrWith addAllocFunAddress $ i (D.Instruction D.BL (D.Calltarget (D.BT 0) :< Nil)) ]
   where
@@ -50,7 +50,7 @@ initializeProbeSupportFunArray
   -> Map.Map RT.SupportFunction (R.SymbolicAddress RP.PPC32)
   -> R.ConcreteAddress RP.PPC32
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr =
+initializeProbeSupportFunArray _repr pointerWidth supportFunctions probeSupportFunArrayAddr =
   let probeStoreInstrs = sconcat $ DLN.fromList $ map storeFnAddr probeSupportFunctions
   in baseAddrInstrs <> probeStoreInstrs
   where
