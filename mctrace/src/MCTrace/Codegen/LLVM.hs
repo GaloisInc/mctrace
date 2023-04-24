@@ -15,6 +15,7 @@ module MCTrace.Codegen.LLVM (
   ) where
 
 import qualified Control.Exception as X
+import           Control.Monad ( void )
 import qualified Control.Monad.Reader as CMR
 import qualified Control.Monad.State as CMS
 import qualified Control.Monad.Trans as CMT
@@ -73,6 +74,10 @@ reprToType r =
       IRT.FloatingPointType { IRT.floatingPointType = IRT.FloatFP }
     ST.FloatRepr ST.DoublePrecRepr ->
       IRT.FloatingPointType { IRT.floatingPointType = IRT.DoubleFP }
+    ST.VoidRepr ->
+      IRT.VoidType
+    ST.StringRepr ->
+      error "reprToType: StringRepr unsupported"
 
 -- | Return the zero initializer for each internal base type
 zeroInit :: ST.Repr tp -> IRC.Constant
@@ -84,6 +89,10 @@ zeroInit r =
       IRC.Float { IRC.floatValue = IRF.Single 0 }
     ST.FloatRepr ST.DoublePrecRepr ->
       IRC.Float { IRC.floatValue = IRF.Double 0 }
+    ST.VoidRepr ->
+      error "zeroInit: VoidRepr unsupported"
+    ST.StringRepr ->
+      error "zeroInit: StringRepr unsupported"
 
 stackAlignment :: Word32
 stackAlignment = 8
@@ -125,10 +134,12 @@ op globals (ProbeSupportFunctions supportFnsOperand) (UCallerPointer uCaller) lo
     ST.GlobalVar idx -> do
       gptr <- globalVarOperand globals idx
       IRB.load gptr 0
-    ST.BuiltinVar builtin t -> do
+    ST.BuiltinVar builtin _ -> do
       -- NOTE: Simplified. Need fix for more complex built-ins
       let MB.BuiltinVarCompiler { MB.compile = provider } = MB.builtinVarCompilers Map.! builtin
       provider (MB.BuiltinVarCompilerArgs supportFnsOperand uCaller Nothing)
+    ST.VoidReg ->
+      error "op: VoidReg not supported"
 
 mapply2 :: (Monad m) => (t1 -> t2 -> m b) -> m t1 -> m t2 -> m b
 mapply2 f o1 o2 = do
@@ -154,6 +165,7 @@ compileExpr globals supportFnsOperand uCallerPointer locals app =
     ST.BVAnd _ r1 r2 -> mapply2 IRB.and (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
     ST.BVOr _ r1 r2 -> mapply2 IRB.or (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
     ST.BVXor _ r1 r2 -> mapply2 IRB.xor (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
+    _ -> error $ "compileExpr: got an unsupported expression"
 
 
 compileStatement :: GlobalStore
@@ -183,6 +195,10 @@ compileStatement globals supportFnsOperand uCallerPointer locals stmt =
       dst <- globalVarOperand globals globalIdx
       val <- provider (MB.BuiltinVarCompilerArgs supportFnsOp uCaller Nothing)
       IRB.store dst 0 val
+    ST.WriteGlobal {} ->
+      error "compileStatement: got unsupported WriteGlobal"
+    ST.VoidStmt (ST.Expr app) ->
+      void $ compileExpr globals supportFnsOperand uCallerPointer locals app
 
 compileProbeBody :: GlobalStore
                  -> ProbeSupportFunctions
