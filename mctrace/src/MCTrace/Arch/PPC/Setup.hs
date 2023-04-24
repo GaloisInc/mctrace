@@ -11,16 +11,10 @@ module MCTrace.Arch.PPC.Setup (
   initializationCode
   ) where
 
-import qualified Data.Bits as B
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as DBU
-import           Data.Coerce ( coerce )
-import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Semigroup ( sconcat )
-import           Data.Word ( Word8, Word32 )
-import qualified Data.Parameterized.TraversableFC as FC
+import           Data.Word ( Word32 )
 import           Data.Parameterized.List(List(..))
 
 import qualified Data.Macaw.PPC.PPCReg ()  -- Needed for the instances. TODO: Investigate again
@@ -31,7 +25,6 @@ import qualified Renovate.Arch.PPC as RP
 import           MCTrace.Arch.PPC.Internal
 import qualified MCTrace.RuntimeAPI as RT
 import MCTrace.RuntimeAPI ( probeSupportFunctions, probeSupportFunctionIndexMap )
-import GHC.Int (Int16, Int32)
 
 -- | Generate instructions to allocate memory using a support function.
 -- A pointer to the allocated memory will be returned in RAX (assuming

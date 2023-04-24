@@ -22,12 +22,10 @@ module MCTrace.Arch.X86.Providers (
 import           Control.Monad ( guard )
 import           Control.Exception ( assert )
 import qualified Data.ByteString.Char8 as BSC
-import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe )
 import qualified Data.Text as T
-import qualified Debug.Trace as Trace
 
 import qualified Flexdis86 as F86
 import qualified Prettyprinter as PP

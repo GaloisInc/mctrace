@@ -17,7 +17,6 @@ import qualified Control.Monad.Except as CME
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ElfEdit as EE
-import qualified Data.ElfEdit.Prim as EEP
 import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
 import qualified Data.List as DL
@@ -44,8 +43,6 @@ import qualified MCTrace.Codegen as MC
 import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.RuntimeAPI as RT
 import qualified MCTrace.ProbeProvider as MP
-import qualified MCTrace.PLT as PLT
-import qualified Renovate as RX
 
 -- | Run a pre-analysis pass in the rewriter monad ('R.RewriteM')
 --
