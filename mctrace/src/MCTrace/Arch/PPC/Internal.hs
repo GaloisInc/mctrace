@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module MCTrace.Arch.PPC.Internal (
-  makeInstr, i, il, annotateInstrWith, 
+  makeInstr, i, il, annotateInstrWith,
   gpr, gpr_nor0, regOffset, loadImm32,
   loadConcreteAddress, withCallerSaveRegisters
 ) where
