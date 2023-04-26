@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Generate an LLVM 'IR.Module' for a set of DTrace probes
 --
 -- This module only performs the pure codegen step; clients must invoke the LLVM
@@ -15,7 +16,7 @@ module MCTrace.Codegen.LLVM (
   ) where
 
 import qualified Control.Exception as X
-import           Control.Monad ( void )
+import           Control.Monad ( void, when )
 import qualified Control.Monad.Reader as CMR
 import qualified Control.Monad.State as CMS
 import qualified Control.Monad.Trans as CMT
@@ -40,6 +41,7 @@ import qualified LLVM.IRBuilder.Constant as IRBC
 import qualified LLVM.Relocation as LLR
 import qualified LLVM.Target as LLT
 import qualified Language.DTrace.Syntax.Typed as ST
+import qualified Language.DTrace.TypeCheck as TC
 
 import qualified MCTrace.Builtins as MB
 import qualified MCTrace.Exceptions as ME
@@ -141,6 +143,21 @@ op globals (ProbeSupportFunctions supportFnsOperand) (UCallerPointer uCaller) lo
     ST.VoidReg ->
       error "op: VoidReg not supported"
 
+regTypeRepr :: Ctx.Assignment ST.LocalVariable locals
+            -> ST.Reg globals locals tp
+            -> IRB.IRBuilderT (Builder globals) (ST.Repr tp)
+regTypeRepr localVars reg =
+  case reg of
+    ST.LocalReg idx ->
+      return $ ST.localVarRepr $ localVars Ctx.! idx
+    ST.GlobalVar idx -> do
+      gvs <- CMT.lift (CMR.asks globalVars)
+      return $ ST.globalVarRepr $ gvs Ctx.! idx
+    ST.BuiltinVar _ r ->
+      return r
+    ST.VoidReg ->
+      return ST.VoidRepr
+
 mapply2 :: (Monad m) => (t1 -> t2 -> m b) -> m t1 -> m t2 -> m b
 mapply2 f o1 o2 = do
   o1' <- o1
@@ -150,38 +167,78 @@ mapply2 f o1 o2 = do
 compileExpr :: GlobalStore
             -> ProbeSupportFunctions
             -> UCallerPointer
+            -> Ctx.Assignment ST.LocalVariable locals
             -> Ctx.Assignment (C.Const IR.Operand) locals
             -> ST.App (ST.Reg globals locals) tp
-            -> IRB.IRBuilderT (Builder globals) IR.Operand
-compileExpr globals supportFnsOperand uCallerPointer locals app =
+            -> IRB.IRBuilderT (Builder globals) (Maybe IR.Operand)
+compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app =
   case app of
     ST.LitInt _fmt rep bv ->
-      return $ IR.ConstantOperand IRC.Int { IRC.integerBits = fromIntegral (PN.natValue rep), IRC.integerValue = DBS.asUnsigned bv }
+      return $ Just $
+          IR.ConstantOperand IRC.Int { IRC.integerBits = fromIntegral (PN.natValue rep)
+                                     , IRC.integerValue = DBS.asUnsigned bv
+                                     }
+    ST.BVAdd _ r1 r2 ->
+        Just <$> mapply2 IRB.add (op globals supportFnsOperand uCallerPointer localOperands r1)
+                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+    ST.BVSub _ r1 r2 ->
+        Just <$> mapply2 IRB.sub (op globals supportFnsOperand uCallerPointer localOperands r1)
+                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+    ST.BVMul _ r1 r2 ->
+        Just <$> mapply2 IRB.mul (op globals supportFnsOperand uCallerPointer localOperands r1)
+                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+    ST.BVAnd _ r1 r2 ->
+        Just <$> mapply2 IRB.and (op globals supportFnsOperand uCallerPointer localOperands r1)
+                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+    ST.BVOr _ r1 r2 ->
+        Just <$> mapply2 IRB.or (op globals supportFnsOperand uCallerPointer localOperands r1)
+                                (op globals supportFnsOperand uCallerPointer localOperands r2)
+    ST.BVXor _ r1 r2 ->
+        Just <$> mapply2 IRB.xor (op globals supportFnsOperand uCallerPointer localOperands r1)
+                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+    ST.Call ST.VoidRepr "send" args -> do
+        let sz = Ctx.sizeInt $ Ctx.size args
+        when (sz /= 1) $
+            error $ "BUG: compileExpr: send() call had arg list of unexpected length: " <> show sz
+        Ctx.traverseWithIndex_ (compileSend globals supportFnsOperand uCallerPointer localVars localOperands) args
+        return Nothing
 
-    ST.BVAdd _ r1 r2 -> mapply2 IRB.add (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
-    ST.BVSub _ r1 r2 -> mapply2 IRB.sub (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
-    ST.BVMul _ r1 r2 -> mapply2 IRB.mul (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
+    _ -> error "compileExpr: got an unsupported expression"
 
-    ST.BVAnd _ r1 r2 -> mapply2 IRB.and (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
-    ST.BVOr _ r1 r2 -> mapply2 IRB.or (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
-    ST.BVXor _ r1 r2 -> mapply2 IRB.xor (op globals supportFnsOperand uCallerPointer locals r1) (op globals supportFnsOperand uCallerPointer locals r2)
-    _ -> error $ "compileExpr: got an unsupported expression"
-
+compileSend :: GlobalStore
+            -> ProbeSupportFunctions
+            -> UCallerPointer
+            -> Ctx.Assignment ST.LocalVariable locals
+            -> Ctx.Assignment (C.Const IR.Operand) locals
+            -> Ctx.Index tps tp
+            -> ST.Reg globals locals tp
+            -> IRB.IRBuilderT (Builder globals) ()
+compileSend globals supportFnsOperand uCallerPointer localVars localOperands _ arg = do
+    let ty = ST.BVRepr TC.n32
+    r <- regTypeRepr localVars arg
+    case PN.testEquality ty r of
+        Nothing -> error "BUG: compileSend got a send() argument that isn't the right type"
+        Just PN.Refl -> do
+            valOperand <- op globals supportFnsOperand uCallerPointer localOperands arg
+            sendStatement globals supportFnsOperand valOperand
 
 compileStatement :: GlobalStore
                  -> ProbeSupportFunctions
                  -> UCallerPointer
+                 -> Ctx.Assignment ST.LocalVariable locals
                  -> Ctx.Assignment (C.Const IR.Operand) locals
                  -> ST.Stmt globals locals
                  -> IRB.IRBuilderT (Builder globals) ()
-compileStatement globals supportFnsOperand uCallerPointer locals stmt =
+compileStatement globals supportFnsOperand uCallerPointer localVars localOperands stmt =
   case stmt of
     ST.SetReg localIdx (ST.Expr app) -> do
-      operand <- compileExpr globals supportFnsOperand uCallerPointer locals app
-      IRB.store (C.getConst (locals Ctx.! localIdx)) 0 operand
+      mOperand <- compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
+      case mOperand of
+          Nothing -> return ()
+          Just operand -> IRB.store (C.getConst (localOperands Ctx.! localIdx)) 0 operand
     ST.WriteGlobal globalIdx (ST.LocalReg localIdx) -> do
       dst <- globalVarOperand globals globalIdx
-      val <- IRB.load (C.getConst (locals Ctx.! localIdx)) stackAlignment
+      val <- IRB.load (C.getConst (localOperands Ctx.! localIdx)) stackAlignment
       IRB.store dst 0 val
     ST.WriteGlobal globalIdx (ST.GlobalVar srcIdx) -> do
       src <- globalVarOperand globals srcIdx
@@ -198,7 +255,7 @@ compileStatement globals supportFnsOperand uCallerPointer locals stmt =
     ST.WriteGlobal {} ->
       error "compileStatement: got unsupported WriteGlobal"
     ST.VoidStmt (ST.Expr app) ->
-      void $ compileExpr globals supportFnsOperand uCallerPointer locals app
+      void $ compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
 
 compileProbeBody :: GlobalStore
                  -> ProbeSupportFunctions
@@ -208,21 +265,22 @@ compileProbeBody :: GlobalStore
                  -> IRB.IRBuilderT (Builder globals) ()
 compileProbeBody globalOperands supportFnsOperand uCallerPointer localVars stmts = do
   localOperands <- Ctx.traverseWithIndex allocateLocal localVars
-  mapM_ (compileStatement globalOperands supportFnsOperand uCallerPointer localOperands) stmts
-  sendStatement globalOperands supportFnsOperand
+  mapM_ (compileStatement globalOperands supportFnsOperand uCallerPointer localVars localOperands) stmts
 
-sendStatement :: GlobalStore -> ProbeSupportFunctions -> IRB.IRBuilderT (Builder globals) ()
-sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunctions) = do
+sendStatement :: GlobalStore
+              -> ProbeSupportFunctions
+              -> IR.Operand
+              -> IRB.IRBuilderT (Builder globals) ()
+sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunctions) arg = do
   fnAddr <- IRB.gep probeSupportFunctions [IRB.int32 sendFnIndex]
   fn <- IRB.load fnAddr 0
   castedFn <- IRB.bitcast fn (pointerType sendFnType)
   gStore <- IRB.load globalStore 0
   castedGlobalStore <- IRB.bitcast gStore (pointerType IRT.i8)
   globalsSize <- fromIntegral <$> calcGlobalsSize
-  let operands = [(IRBC.int32 fdToUse, []), (castedGlobalStore, []), (IRBC.int32 globalsSize, [])]
+  let operands = [(arg, []), (castedGlobalStore, []), (IRBC.int32 globalsSize, [])]
   CMS.void $ IRB.call castedFn operands
   where
-    fdToUse = 1 -- STDOUT
     sendFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Send
     sendFnType = IRT.FunctionType IRT.VoidType [IRT.i32, pointerType IRT.i8, IRT.i32] False
     calcGlobalsSize :: IRB.IRBuilderT (Builder globals) Word32

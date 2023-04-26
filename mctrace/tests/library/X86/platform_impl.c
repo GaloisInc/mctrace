@@ -11,16 +11,19 @@
 
 #include "include/platform_api.h"
 
-void platform_send(uint32_t fd, void* str, uint32_t sz) {
+void platform_send(uint32_t val, void* str, uint32_t sz) {
     ssize_t ret = 0;
+    void *valptr = &val;
+    size_t valsz = sizeof(val);
+    int fd = 1;
     __asm__ __volatile__(
         "movq %[fd], %%rdi;"
-        "movq %[str], %%rsi;"
-        "movq %[sz], %%rdx;"
+        "movq %[valptr], %%rsi;"
+        "movq %[valsz], %%rdx;"
         "movq $1, %%rax;"
         "syscall;"
         : "=g" (ret)
-        : [fd] "g" ((uint64_t)fd), [str] "g" (str), [sz] "g" ((size_t)sz)
+        : [fd] "g" ((uint64_t)fd), [valptr] "g" (valptr), [valsz] "g" ((size_t)valsz)
         : "rdi", "rsi", "rdx", "rax"
     );
 }
