@@ -23,12 +23,12 @@ library
                        Language.DTrace.Syntax.Typed
                        Language.DTrace.Syntax.Typed.Eval
                        Language.DTrace.Syntax.Untyped
+                       Language.DTrace.TypeCheck
   other-modules:       Language.DTrace.Lexer
                        Language.DTrace.LexerWrapper
                        Language.DTrace.Parser
                        Language.DTrace.Parser.Monad
                        Language.DTrace.Token
-                       Language.DTrace.TypeCheck
   build-tool-depends:  alex:alex,
                        happy:happy
   build-depends:       base >=4.11.1.0 && < 5,
