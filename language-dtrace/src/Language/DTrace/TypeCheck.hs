@@ -14,6 +14,8 @@ module Language.DTrace.TypeCheck (
   , SU.Builtin(..)
   , ppTypeError
   , ppTypeErrorMessage
+  , n32
+  , n64
   ) where
 
 import           Control.Applicative ( (<|>) )
