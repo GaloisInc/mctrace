@@ -61,9 +61,10 @@ the Dtrace language, some core Dtrace language features are supported:
 In addition to core Dtrace language features, Mctrace supports the
 following Dtrace actions specific to Mctrace:
 
-* `send(uint64_t value)`: an abstract platform-specific value
+* `send(uint32_t value)`: an abstract platform-specific value
   exfiltration action. Mctrace translates calls to this action into
-  calls to the platform API's implementation of the `send()` function.
+  calls to the platform API's implementation of the `platform_send()`
+  function.
 
 Example Dtrace probe scripts demonstrating Mctrace's features can be
 found in `dtrace-examples/` in this distribution.
