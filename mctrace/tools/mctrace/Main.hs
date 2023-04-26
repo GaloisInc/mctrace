@@ -46,8 +46,6 @@ import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.Loader as ML
 import qualified MCTrace.Panic as MP
 
-import qualified Debug.Trace as Trace
-
 import qualified Options as O
 
 withOptional :: Maybe a -> (a -> IO ()) -> IO ()
