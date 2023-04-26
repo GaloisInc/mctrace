@@ -58,7 +58,7 @@ void* platform_alloc_memory(size_t sz) {
           [sz] "g" (sz)
         : "rdi", "rsi", "rdx", "rax", "r8", "r9", "r10"
     );
-    
+
     return res;
 }
 
@@ -77,4 +77,4 @@ uint64_t platform_timestamp() {
     : "rdi", "rsi", "rax"
     );
     return ts.tv_sec * 1000000000 + ts.tv_nsec;
-} 
+}
