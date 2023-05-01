@@ -196,6 +196,7 @@ compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
     ST.BVXor _ r1 r2 ->
         Just <$> mapply2 IRB.xor (op globals supportFnsOperand uCallerPointer localOperands r1)
                                  (op globals supportFnsOperand uCallerPointer localOperands r2)
+
     ST.Call ST.VoidRepr "send" args -> do
         let sz = Ctx.sizeInt $ Ctx.size args
         when (sz /= 1) $
