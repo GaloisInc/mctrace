@@ -213,6 +213,8 @@ typeOfExpr e =
     SU.BVLshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
     SU.BVAshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
 
+    SU.Call {} -> Nothing
+
 typeOfBuiltin :: SU.Builtin -> Some ST.Repr
 typeOfBuiltin SU.Timestamp = Some (ST.BVRepr n64)
 typeOfBuiltin SU.UCaller = Some (ST.BVRepr n64) -- FIXME: I don't think this can always be right
