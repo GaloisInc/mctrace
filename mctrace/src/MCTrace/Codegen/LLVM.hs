@@ -203,7 +203,39 @@ compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
         Ctx.traverseWithIndex_ (compileSend globals supportFnsOperand uCallerPointer localVars localOperands) args
         return Nothing
 
+    ST.Call (ST.BVRepr n) "copyint32" args
+        | Just _ <- PN.testEquality n TC.n32 -> do
+            let expectedArgsRepr = Ctx.singleton (ST.BVRepr TC.n32)
+            argsRepr <- Ctx.traverseWithIndex (const $ regTypeRepr localVars) args
+            case PN.testEquality argsRepr expectedArgsRepr of
+                Nothing ->
+                    MP.panic MP.LLVMCodegen "compileExpr"
+                             ["copyint32() call had arg list of unexpected length"]
+                Just PN.Refl -> do
+                    ops <- Ctx.traverseAndCollect (compileCopyInt32 globals supportFnsOperand
+                                                   uCallerPointer localVars localOperands) args
+                    return $ Just $ ops !! 0
+
     _ -> error "compileExpr: got an unsupported expression"
+
+compileCopyInt32 :: GlobalStore
+                 -> ProbeSupportFunctions
+                 -> UCallerPointer
+                 -> Ctx.Assignment ST.LocalVariable locals
+                 -> Ctx.Assignment (C.Const IR.Operand) locals
+                 -> Ctx.Index tps tp
+                 -> ST.Reg globals locals tp
+                 -> IRB.IRBuilderT (Builder globals) [IR.Operand]
+compileCopyInt32 globals supportFnsOperand uCallerPointer localVars localOperands _ arg = do
+    let ty = ST.BVRepr TC.n32
+    r <- regTypeRepr localVars arg
+    case PN.testEquality ty r of
+        Nothing ->
+            MP.panic MP.LLVMCodegen "compileCopyInt32" ["got a copyint32() argument that isn't the right type"]
+        Just PN.Refl -> do
+            valOperand <- op globals supportFnsOperand uCallerPointer localOperands arg
+            addrOperand <- IRB.inttoptr valOperand $ pointerType IRT.i32
+            (:[]) <$> IRB.load addrOperand 0
 
 compileSend :: GlobalStore
             -> ProbeSupportFunctions

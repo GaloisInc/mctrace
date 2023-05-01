@@ -466,6 +466,18 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
                       let s2 = writeVoidStmt s1 (ST.Call ST.VoidRepr name $ Ctx.singleton nIdx)
                       k s2 ST.VoidReg
 
+    -- "copyint32" action: u32 copyint32(u32)
+    SU.Call name [n]
+      | name == T.pack "copyint32" ->
+          translateExpr s0 n onError $ \s1 argIdx -> do
+              let resultTy = ST.BVRepr n32
+              withFreshLocal s1 resultTy $ \s2 destIdx -> do
+                  case PC.testEquality (regType s1 argIdx) resultTy of
+                      Nothing -> onError ex0 (ArgumentTypeMismatch n resultTy (regType s1 argIdx))
+                      Just PC.Refl -> do
+                          let s3 = setReg s2 destIdx (ST.Call resultTy name $ Ctx.singleton $ unsafeCoerce argIdx)
+                          k s3 (ST.LocalReg destIdx)
+
     _ -> error ("Panic, unhandled expression: " ++ show ex0)
 
 binaryArith :: PState globals locals
