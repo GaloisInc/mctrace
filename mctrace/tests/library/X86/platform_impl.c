@@ -23,7 +23,7 @@ void platform_send(uint32_t val, void* str, uint32_t sz) {
         "movq $1, %%rax;"
         "syscall;"
         : "=g" (ret)
-        : [valptr] "g" (valptr), [valsz] "g" ((size_t)valsz)
+        : [fd] "g" ((uint64_t)fd), [valptr] "g" (valptr), [valsz] "g" ((size_t)valsz)
         : "rdi", "rsi", "rdx", "rax"
     );
 }
