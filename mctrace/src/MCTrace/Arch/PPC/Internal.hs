@@ -18,14 +18,13 @@ import           Data.Coerce ( coerce )
 import qualified Data.List.NonEmpty as DLN
 import           Data.Word ( Word8, Word32 )
 import qualified Data.Parameterized.TraversableFC as FC
-import           Data.Parameterized.List(List(..))
+import           Data.Parameterized.List( List(..) )
+import           GHC.Int ( Int16 )
 
 import qualified Data.Macaw.PPC.PPCReg ()  -- Needed for the instances. TODO: Investigate again
 import qualified Dismantle.PPC as D
 import qualified Renovate as R
 import qualified Renovate.Arch.PPC as RP
-
-import GHC.Int (Int16)
 
 -- makeInstr = R.fromGenericInstruction @RP.PPC32 RP.PPCRepr
 makeInstr :: D.Instruction -> RP.Instruction RP.OnlyEncoding ()

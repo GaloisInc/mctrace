@@ -107,58 +107,5 @@ initializationCode globalStoreSize globalAddr supportFunctions probeSupportFunAr
       case op of
         D.Directbrtarget _ -> D.Annotated (R.SymbolicRelocation (R.stableAddress origEntry)) op
         _ -> D.Annotated R.NoRelocation op
-  --   allocMemFnAddress = supportFunctions Map.! RT.AllocMemory
-  -- neconcat (-- Save the registers we are going to clobber to the stack
-  --           applyRegisters repr "push" usedRegisters DLN.:|
-  --           [
-  --        -- Allocate memory using the external function
-  --        -- FIXME: Exit if the call failed. e.g. %rax < 0
-  --        allocMemory repr allocMemFnAddress globalStoreSize path
 
-  --        -- Save the address returned by mmap (in %rax) into the global variable
-  --        --
-  --        -- We need to turn this into a symbolic reference to be fixed up later
-  --        , (RP.annotateInstrWith addMemAddr $
-  --              RP.makeInstr repr "mov"
-  --              [ F86.Mem64 (F86.IP_Offset_32 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
-  --              , F86.QWordReg F86.RAX
-  --              ]
-  --          ) DLN.:| []
-  --        -- Initialize the probe support function gloabl array of pointers
-  --        , initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr
-  --          -- Restore saved values
-  --        , applyRegisters repr "pop" (DLN.reverse usedRegisters)
-  --        , (RP.annotateInstrWith addEntryAddr $
-  --           RP.makeInstr repr "jmp" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]) DLN.:| []
-  --        ])
-  -- where
-  --   addEntryAddr (RP.AnnotatedOperand v _) =
-  --     case v of
-  --       (F86.JumpOffset {}, _) -> RP.AnnotatedOperand v (R.PCRelativeRelocation origEntry)
-  --       _ -> RP.AnnotatedOperand v R.NoRelocation
-
-  --   addMemAddr (RP.AnnotatedOperand v _) =
-  --     case v of
-  --       (F86.Mem64 {}, _) -> RP.AnnotatedOperand v (R.PCRelativeRelocation globalAddr)
-  --       _ -> RP.AnnotatedOperand v R.NoRelocation
-  --   allocMemFnAddress = supportFunctions Map.! RT.AllocMemory
-
-{- Note [System Calls]
-
-On ppc_64 linux:
-
-- The system call number is placed in %rax
-- The return value is placed in %rax
-- Arguments are placed (in order) in: %rdi, %rsi, %rdx, %r10, %r8, %r9
-
-System calls of note for this:
-- write (%rax = 1)
-- open (%rax = 2)
-- mmap (%rax = 9)
-- exit (%rax = 60)
-- ftruncate (%rax = 77)
-
-Note that mmap requires all 6 arguments
-
--}
 

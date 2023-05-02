@@ -46,7 +46,7 @@ the Dtrace language, some core Dtrace language features are supported:
 * Probe pattern matching
 * Probe descriptions
 * Global variables
-* The `timestamp` variable
+* The `timestamp` and `ucaller` built-in variables
 
 Example Dtrace probe scripts demonstrating MCTrace's features can be
 found in `examples/eval/` in this distribution.
@@ -64,10 +64,12 @@ limitations:
  - The binaries run in Linux userspace for their respective
    architectures. Future work will involve supporting "bare-metal"
    PowerPC programs.
- - The only DTrace built-in variable currently supported is `timestamp`.
-   Future work will include support for `ucaller`, a `copy` subroutine,
-   and an *explicit* send action for writing data to a platform-specific
-   location.
+ - The only DTrace built-in variables currently supported are `timestamp`
+   and `ucaller`. MCTrace also supports an explicit `send` action of the form:
+   `send(<numeric channel id>)`; invoking `send` will result in an invocation
+   of the `platform_send` function in the Platform API with that channel id and
+   the global data store. Future work will include support for the `arg0`
+   variable and the `copy` subroutine.
  - Platform API implementations are subject to the following
    restrictions:
    - Functions in the Platform API implementation must be self-contained
@@ -180,19 +182,12 @@ To invoke the instrumented binary and extract data:
 
 This produces output similar to the following:
 
-    {"write_count":1,"write_elapsed":0,"write_ts":1681222607714558552}
     {"write_count":1,"write_elapsed":162240,"write_ts":1681222607714740774}
-    {"write_count":2,"write_elapsed":0,"write_ts":1681222607714798744}
     {"write_count":2,"write_elapsed":1740,"write_ts":1681222607714800756}
-    {"write_count":3,"write_elapsed":0,"write_ts":1681222607714801836}
     {"write_count":3,"write_elapsed":1309,"write_ts":1681222607714803400}
-    {"write_count":4,"write_elapsed":0,"write_ts":1681222607714804181}
     {"write_count":4,"write_elapsed":1344,"write_ts":1681222607714805742}
-    {"write_count":5,"write_elapsed":0,"write_ts":1681222607714806536}
     {"write_count":5,"write_elapsed":1228,"write_ts":1681222607714807992}
-    {"write_count":6,"write_elapsed":0,"write_ts":1681222607714808768}
     {"write_count":6,"write_elapsed":1222,"write_ts":1681222607714810214}
-    {"write_count":7,"write_elapsed":0,"write_ts":1681222607714811076}
     {"write_count":7,"write_elapsed":1257,"write_ts":1681222607714812555}
 
 - Note that `2>&1 >/dev/null` has the effect of piping the standard
