@@ -6,5 +6,6 @@ long prog_cntr;
 {
 	ts = timestamp;
 	prog_cntr = ucaller;
+	send(1);
 }
 
