@@ -22,12 +22,10 @@ module MCTrace.Arch.X86.Providers (
 import           Control.Monad ( guard )
 import           Control.Exception ( assert )
 import qualified Data.ByteString.Char8 as BSC
-import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe )
 import qualified Data.Text as T
-import qualified Debug.Trace as Trace
 
 import qualified Flexdis86 as F86
 import qualified Prettyprinter as PP
@@ -141,7 +139,7 @@ matcherEntry
   -> MA.ProbeLocationAnalysisResult globals RX.X86_64
   -> R.SymbolicBlock RX.X86_64
   -> Maybe (MP.ProbeInserter RX.X86_64)
-matcherEntry probeSymAddr providerName symNames locationAnalysis symBlock = do
+matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
@@ -162,7 +160,7 @@ matcherExit
   -> MA.ProbeLocationAnalysisResult globals RX.X86_64
   -> R.SymbolicBlock RX.X86_64
   -> Maybe (MP.ProbeInserter RX.X86_64)
-matcherExit probeSymAddr providerName symNames locationAnalysis symBlock = do
+matcherExit probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.

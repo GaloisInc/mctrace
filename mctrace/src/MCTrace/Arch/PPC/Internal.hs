@@ -8,30 +8,24 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module MCTrace.Arch.PPC.Internal (
-  makeInstr, i, il, annotateInstrWith, 
+  makeInstr, i, il, annotateInstrWith,
   gpr, gpr_nor0, regOffset, loadImm32,
   loadConcreteAddress, withCallerSaveRegisters
 ) where
 
 import qualified Data.Bits as B
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as DBU
 import           Data.Coerce ( coerce )
-import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
-import qualified Data.Map.Strict as Map
-import           Data.Semigroup ( sconcat )
 import           Data.Word ( Word8, Word32 )
 import qualified Data.Parameterized.TraversableFC as FC
 import           Data.Parameterized.List(List(..))
 
 import qualified Data.Macaw.PPC.PPCReg ()  -- Needed for the instances. TODO: Investigate again
-import qualified Data.Macaw.PPC as MP
 import qualified Dismantle.PPC as D
 import qualified Renovate as R
 import qualified Renovate.Arch.PPC as RP
 
-import GHC.Int (Int16, Int32)
+import GHC.Int (Int16)
 
 -- makeInstr = R.fromGenericInstruction @RP.PPC32 RP.PPCRepr
 makeInstr :: D.Instruction -> RP.Instruction RP.OnlyEncoding ()

@@ -3,8 +3,6 @@ module MCTrace.Arch.X86.Setup (
   linuxInitializationCode
   ) where
 
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as DBU
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map

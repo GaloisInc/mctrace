@@ -51,17 +51,17 @@ expectedType dt rep =
 -- unexpected variables are present
 mkTypecheckTest :: FilePath -> TT.TestTree
 mkTypecheckTest expectedFile = TTH.testCase dfile $ do
-  expectedString <- readFile expectedFile
-  case readMaybe expectedString of
-    Nothing -> TTH.assertFailure ("Error parsing expected file: " ++ expectedFile)
-    Just ex -> do
-      dcontent <- TIO.readFile dfile
-      case LD.parseDTrace dfile dcontent of
-        Left err -> TTH.assertFailure ("Error parsing DTrace file: " ++ show err)
-        Right decls ->
-          case LD.typeCheck decls of
-            Left errs -> TTH.assertFailure ("Type errors: " ++ show errs)
-            Right (LDT.Probes globalVars globalMap _probes) -> do
+  dcontent <- TIO.readFile dfile
+  case LD.parseDTrace dfile dcontent of
+    Left err -> TTH.assertFailure ("Error parsing DTrace file: " ++ show err)
+    Right decls ->
+      case LD.typeCheck decls of
+        Left errs -> TTH.assertFailure ("Type errors: " ++ show errs)
+        Right (LDT.Probes globalVars globalMap _probes) -> do
+          expectedString <- readFile expectedFile
+          case readMaybe expectedString of
+            Nothing -> TTH.assertFailure ("Error parsing expected file: " ++ expectedFile)
+            Just ex -> do
               F.forM_ (globals ex) $ \(name, exTy) -> do
                 case Map.lookup (T.pack name) globalMap of
                   Nothing -> TTH.assertFailure ("No global entry for expected global: " ++ name)

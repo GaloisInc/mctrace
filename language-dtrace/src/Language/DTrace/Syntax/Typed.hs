@@ -13,6 +13,7 @@ module Language.DTrace.Syntax.Typed (
   , BVType
   , BoolType
   , StringType
+  , VoidType
   , FloatPrecRepr(..)
   , Repr(..)
   , App(..)
@@ -75,12 +76,14 @@ type BVType = 'BVType
 type BoolType = 'BoolType
 type FloatType = 'FloatType
 type StringType = 'StringType
+type VoidType = 'VoidType
 
 data Repr tp where
   BVRepr :: PN.NatRepr n -> Repr (BVType n)
   BoolRepr :: Repr BoolType
   FloatRepr :: FloatPrecRepr p -> Repr (FloatType p)
   StringRepr :: Repr StringType
+  VoidRepr :: Repr VoidType
 
 $(return [])
 
@@ -99,6 +102,10 @@ data Reg globals locals (tp :: Type) where
   LocalReg :: Ctx.Index locals tp -> Reg globals locals tp
   GlobalVar :: Ctx.Index globals tp -> Reg globals locals tp
   BuiltinVar :: Builtin -> Repr tp -> Reg globals locals tp
+  -- The singleton void reg with void type that we use when we need
+  -- to pass this Reg along, CPS-style, as the Reg corresponding to a
+  -- void-type expression.
+  VoidReg :: Reg globals locals VoidType
 
 newtype Expr globals locals (tp :: Type) = Expr { exprApp :: App (Reg globals locals) tp }
 
@@ -151,11 +158,14 @@ data App (f :: Type -> DK.Type) (tp :: Type) where
   FGe :: f (FloatType p) -> f (FloatType p) -> App f BoolType
   FloatToBV :: FloatPrecRepr p -> f (FloatType p) -> PN.NatRepr n -> App f (BVType n)
 
-  Call :: Repr tp -> T.Text -> Ctx.Assignment (App f) tps -> App f tp
+  Call :: Repr tp -> T.Text -> Ctx.Assignment f tps -> App f tp
 
 data Stmt globals locals where
   SetReg :: Ctx.Index locals tp -> Expr globals locals tp -> Stmt globals locals
   WriteGlobal :: Ctx.Index globals tp -> Reg globals locals tp -> Stmt globals locals
+  -- For statements that modify no Regs, such as calls to subroutines or
+  -- actions that return no values.
+  VoidStmt :: Expr globals locals VoidType -> Stmt globals locals
 
 data GlobalVariable tp where
   GlobalVariable :: Repr tp -> T.Text -> GlobalVariable tp

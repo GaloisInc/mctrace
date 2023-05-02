@@ -22,14 +22,12 @@ module MCTrace.Arch.PPC.Providers (
 import           Control.Monad ( guard )
 import           Control.Exception ( assert )
 import qualified Data.ByteString.Char8 as BSC
-import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe )
 import           Data.Parameterized.List(List(..))
 import           Data.Semigroup ( sconcat )
 import qualified Data.Text as T
-import qualified Debug.Trace as Trace
 
 import qualified Prettyprinter as PP
 import qualified Dismantle.PPC as D
@@ -68,7 +66,7 @@ callProbe
   -> R.SymbolicAddress RP.PPC32
   -- ^ The symbolic address of the injected probe function
   -> DLN.NonEmpty (R.Instruction RP.PPC32 tp (R.Relocation RP.PPC32))
-callProbe locationAnalysis repr@RP.PPCRepr probeAddr =
+callProbe locationAnalysis RP.PPCRepr probeAddr =
   withCallerSaveRegisters $ 
     -- withSavedLinkRegister $
       sconcat ( 
@@ -136,7 +134,7 @@ withLastInstructionSymTarget
   -> a
 withLastInstructionSymTarget def symBlock k = R.withSymbolicInstructions symBlock $ \_repr insns -> do
   case RP.toAnnotatedInst (DLN.head (DLN.reverse insns)) of
-    D.Instruction opc operands ->
+    D.Instruction _opc operands ->
       case operands of
         D.Annotated (R.SymbolicRelocation symaddr) (D.Calltarget _) :< Nil ->
           k symaddr
@@ -165,7 +163,7 @@ matcherEntry
   -> MA.ProbeLocationAnalysisResult globals RP.PPC32
   -> R.SymbolicBlock RP.PPC32
   -> Maybe (MP.ProbeInserter RP.PPC32)
-matcherEntry probeSymAddr providerName symNames locationAnalysis symBlock = do
+matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
@@ -186,7 +184,7 @@ matcherExit
   -> MA.ProbeLocationAnalysisResult globals RP.PPC32
   -> R.SymbolicBlock RP.PPC32
   -> Maybe (MP.ProbeInserter RP.PPC32)
-matcherExit probeSymAddr providerName symNames locationAnalysis symBlock = do
+matcherExit probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.

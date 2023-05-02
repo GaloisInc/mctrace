@@ -14,6 +14,8 @@ module Language.DTrace.TypeCheck (
   , SU.Builtin(..)
   , ppTypeError
   , ppTypeErrorMessage
+  , n32
+  , n64
   ) where
 
 import           Control.Applicative ( (<|>) )
@@ -43,6 +45,8 @@ data TypeErrorMessage where
   SignedLiteralOutOfRange :: PN.NatRepr n -> Natural -> TypeErrorMessage
   UnsignedLiteralOutOfRange :: PN.NatRepr n -> Natural -> TypeErrorMessage
   TypeMismatchOnAssignment :: ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
+  -- Expression, expected type, actual type
+  ArgumentTypeMismatch :: LDL.Located SU.Expr -> ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
   BinaryOperatorTypeMismatch :: String -> ST.Repr tp1 -> ST.Repr tp2 -> TypeErrorMessage
   InvalidOperandTypeForOperator :: String -> ST.Repr tp -> TypeErrorMessage
 
@@ -62,6 +66,9 @@ ppTypeErrorMessage tag =
       PP.pretty "Unsigned literal " <> PP.pretty n <> PP.pretty " is too large for type of width " <> PP.viaShow (PN.natValue nr)
     TypeMismatchOnAssignment rhs varTy ->
       PP.pretty "Invalid assignment of expression with type " <> PP.viaShow rhs <> PP.pretty " to location with type " <> PP.viaShow varTy
+    ArgumentTypeMismatch expr expected actual ->
+      PP.pretty "Argument type mismatch for " <> PP.viaShow expr <> PP.pretty "; expected " <> PP.viaShow expected <> PP.pretty " but got " <>
+        PP.viaShow actual
     BinaryOperatorTypeMismatch op lhs rhs ->
       PP.pretty "Invalid operands to operator " <> PP.pretty op <> PP.pretty ": " <> PP.viaShow lhs <> PP.pretty " and " <> PP.viaShow rhs
     InvalidOperandTypeForOperator op tty ->
@@ -357,6 +364,13 @@ writeGlobal pstate dst src =
   pstate { probeStmts = probeStmts pstate Seq.|> ST.WriteGlobal dst src
          }
 
+writeVoidStmt :: PState globals locals
+              -> ST.App (ST.Reg globals locals) ST.VoidType
+              -> PState globals locals
+writeVoidStmt pstate call =
+  pstate { probeStmts = probeStmts pstate Seq.|> ST.VoidStmt (ST.Expr call)
+         }
+
 -- | Translate a single untyped expression into a typed expression
 --
 -- Untyped expressions can have arbitrarily deep nesting structure, while the
@@ -438,6 +452,18 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
     SU.Add lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Add" ST.BVAdd ST.FAdd
     SU.Sub lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Sub" ST.BVSub ST.FSub
     SU.Mul lhs rhs -> binaryArith s0 ex0 lhs rhs onError k "Mul" ST.BVMul ST.FMul
+
+    -- "send" action: void send(u32)
+    SU.Call name [n]
+      | name == T.pack "send" ->
+          translateExpr s0 n onError $ \s1 nIdx ->
+              let ty = ST.BVRepr n32
+              in case PC.testEquality (regType s1 nIdx) ty of
+                  Nothing -> onError ex0 (ArgumentTypeMismatch n ty (regType s1 nIdx))
+                  Just PC.Refl -> do
+                      let s2 = writeVoidStmt s1 (ST.Call ST.VoidRepr name $ Ctx.singleton nIdx)
+                      k s2 ST.VoidReg
+
     _ -> error ("Panic, unhandled expression: " ++ show ex0)
 
 binaryArith :: PState globals locals
@@ -460,6 +486,7 @@ binaryArith s0 ex0 lhs rhs onError k opName bvOp fpOp =
             case regType s2 lhsIdx of
               ST.BoolRepr -> onError ex0 (InvalidOperandTypeForOperator opName ST.BoolRepr)
               ST.StringRepr -> onError ex0 (InvalidOperandTypeForOperator opName ST.StringRepr)
+              ST.VoidRepr -> onError ex0 (InvalidOperandTypeForOperator opName ST.VoidRepr)
               ST.BVRepr n ->
                 let s4 = setReg s3 idx (bvOp n (extendReg lhsIdx) (unsafeCoerce rhsIdx))
                 in k s4 (ST.LocalReg idx)
@@ -473,6 +500,7 @@ extendReg r =
     ST.LocalReg localIdx -> ST.LocalReg (Ctx.extendIndex localIdx)
     ST.GlobalVar globalIdx -> ST.GlobalVar globalIdx
     ST.BuiltinVar builtin t -> ST.BuiltinVar builtin t
+    ST.VoidReg -> ST.VoidReg
 
 regType :: PState globals locals -> ST.Reg globals locals tp -> ST.Repr tp
 regType s r =
@@ -480,6 +508,7 @@ regType s r =
     ST.LocalReg localIdx -> ST.localVarRepr (localVars s Ctx.! localIdx)
     ST.GlobalVar globalIdx -> ST.globalVarRepr (globalVars s Ctx.! globalIdx)
     ST.BuiltinVar _ t -> t
+    ST.VoidReg -> ST.VoidRepr
 
 translateStatement :: [LDL.Located SU.Stmt] -> TC () -> TC () -> TC ()
 translateStatement [] _exitEarly k = k
