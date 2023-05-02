@@ -92,7 +92,7 @@ zeroInit r =
     ST.FloatRepr ST.DoublePrecRepr ->
       IRC.Float { IRC.floatValue = IRF.Double 0 }
     ST.VoidRepr ->
-      error "zeroInit: VoidRepr unsupported"
+      IRC.Null { IRC.constantType = IRT.VoidType }
     ST.StringRepr ->
       error "zeroInit: StringRepr unsupported"
 
@@ -170,39 +170,38 @@ compileExpr :: GlobalStore
             -> Ctx.Assignment ST.LocalVariable locals
             -> Ctx.Assignment (C.Const IR.Operand) locals
             -> ST.App (ST.Reg globals locals) tp
-            -> IRB.IRBuilderT (Builder globals) (Maybe IR.Operand)
+            -> IRB.IRBuilderT (Builder globals) IR.Operand
 compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app =
   case app of
     ST.LitInt _fmt rep bv ->
-      return $ Just $
+      return $
           IR.ConstantOperand IRC.Int { IRC.integerBits = fromIntegral (PN.natValue rep)
                                      , IRC.integerValue = DBS.asUnsigned bv
                                      }
     ST.BVAdd _ r1 r2 ->
-        Just <$> mapply2 IRB.add (op globals supportFnsOperand uCallerPointer localOperands r1)
-                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+        mapply2 IRB.add (op globals supportFnsOperand uCallerPointer localOperands r1)
+                        (op globals supportFnsOperand uCallerPointer localOperands r2)
     ST.BVSub _ r1 r2 ->
-        Just <$> mapply2 IRB.sub (op globals supportFnsOperand uCallerPointer localOperands r1)
-                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+        mapply2 IRB.sub (op globals supportFnsOperand uCallerPointer localOperands r1)
+                        (op globals supportFnsOperand uCallerPointer localOperands r2)
     ST.BVMul _ r1 r2 ->
-        Just <$> mapply2 IRB.mul (op globals supportFnsOperand uCallerPointer localOperands r1)
-                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+        mapply2 IRB.mul (op globals supportFnsOperand uCallerPointer localOperands r1)
+                        (op globals supportFnsOperand uCallerPointer localOperands r2)
     ST.BVAnd _ r1 r2 ->
-        Just <$> mapply2 IRB.and (op globals supportFnsOperand uCallerPointer localOperands r1)
-                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
+        mapply2 IRB.and (op globals supportFnsOperand uCallerPointer localOperands r1)
+                        (op globals supportFnsOperand uCallerPointer localOperands r2)
     ST.BVOr _ r1 r2 ->
-        Just <$> mapply2 IRB.or (op globals supportFnsOperand uCallerPointer localOperands r1)
-                                (op globals supportFnsOperand uCallerPointer localOperands r2)
+        mapply2 IRB.or (op globals supportFnsOperand uCallerPointer localOperands r1)
+                       (op globals supportFnsOperand uCallerPointer localOperands r2)
     ST.BVXor _ r1 r2 ->
-        Just <$> mapply2 IRB.xor (op globals supportFnsOperand uCallerPointer localOperands r1)
-                                 (op globals supportFnsOperand uCallerPointer localOperands r2)
-
+        mapply2 IRB.xor (op globals supportFnsOperand uCallerPointer localOperands r1)
+                        (op globals supportFnsOperand uCallerPointer localOperands r2)
     ST.Call ST.VoidRepr "send" args -> do
         let sz = Ctx.sizeInt $ Ctx.size args
         when (sz /= 1) $
             error $ "BUG: compileExpr: send() call had arg list of unexpected length: " <> show sz
         Ctx.traverseWithIndex_ (compileSend globals supportFnsOperand uCallerPointer localVars localOperands) args
-        return Nothing
+        return $ IR.ConstantOperand $ zeroInit ST.VoidRepr
 
     ST.Call (ST.BVRepr n) "copyint32" args
         | Just _ <- PN.testEquality n TC.n32 -> do
@@ -215,7 +214,7 @@ compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
                 Just PN.Refl -> do
                     ops <- Ctx.traverseAndCollect (compileCopyInt32 globals supportFnsOperand
                                                    uCallerPointer localVars localOperands) args
-                    return $ Just $ ops !! 0
+                    return $ ops !! 0
 
     _ -> error "compileExpr: got an unsupported expression"
 
@@ -265,10 +264,8 @@ compileStatement :: GlobalStore
 compileStatement globals supportFnsOperand uCallerPointer localVars localOperands stmt =
   case stmt of
     ST.SetReg localIdx (ST.Expr app) -> do
-      mOperand <- compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
-      case mOperand of
-          Nothing -> return ()
-          Just operand -> IRB.store (C.getConst (localOperands Ctx.! localIdx)) 0 operand
+      operand <- compileExpr globals supportFnsOperand uCallerPointer localVars localOperands app
+      IRB.store (C.getConst (localOperands Ctx.! localIdx)) 0 operand
     ST.WriteGlobal globalIdx (ST.LocalReg localIdx) -> do
       dst <- globalVarOperand globals globalIdx
       val <- IRB.load (C.getConst (localOperands Ctx.! localIdx)) stackAlignment

@@ -28,7 +28,6 @@ import           Data.Maybe ( mapMaybe )
 import           Data.Parameterized.List(List(..))
 import           Data.Semigroup ( sconcat )
 import qualified Data.Text as T
-import qualified Debug.Trace as Trace
 
 import qualified Prettyprinter as PP
 import qualified Dismantle.PPC as D
@@ -171,10 +170,8 @@ matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
   --
   let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symNames
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
-    Trace.traceShow (lastSymTgt, symNames, symAddrs) $
-     guard (lastSymTgt `elem` symAddrs)
-    Trace.trace ("Found " ++ show lastSymTgt) $
-     return $ MP.ProbeInserter $ \irep insns ->
+    guard (lastSymTgt `elem` symAddrs)
+    return $ MP.ProbeInserter $ \irep insns ->
       let term DLN.:| rest = DLN.reverse insns
           callSequence = DLN.toList $ callProbe locationAnalysis irep probeSymAddr
           rinsns = term DLN.:| (reverse callSequence <> rest)

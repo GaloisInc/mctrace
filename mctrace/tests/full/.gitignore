@@ -5,3 +5,4 @@ slow-read-write
 *.inst
 *-X86
 *-PPC
+*.json

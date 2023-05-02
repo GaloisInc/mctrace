@@ -6,15 +6,27 @@ PROGRAMS = read-syscall-$(ARCH) \
 	   slow-read-write-$(ARCH) \
 	   alloc-dealloc-fread-fwrite-$(ARCH)
 
+ifeq ($(DOCKER),1)
+    # In Docker, mctrace is in the path (See Dockerfile)
+    MCTRACE = mctrace
+else
+    MCTRACE = cabal exec mctrace
+endif
+
 ifeq ($(ARCH),PPC)
-    CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
+    ifeq ($(DOCKER),1)
+        # In Docker, the cross compiler is in the path (See Dockerfile)
+        CC = powerpc-linux-muslsf-gcc
+    else
+        CC = ../../../musl-gcc/output/bin/powerpc-linux-muslsf-gcc
+    endif
 else ifeq ($(ARCH),X86)
     CC = musl-gcc
 else
     $(error $(ARCH) - unknown architecture)
 endif
 
-all: platform_impl $(PROGRAMS) instrument_tests
+all: platform_impl $(PROGRAMS) instrument_tests instrument_binaries
 
 platform_impl:
 	$(CC) -c -I../library ../library/$(ARCH)/platform_impl.c -o ../library/$(ARCH)/platform_impl.o
@@ -36,11 +48,11 @@ alloc-dealloc-fread-fwrite-$(ARCH): alloc-dealloc-fread-fwrite.c
 ######################################################################
 
 define do_instrument
-    cabal exec mctrace -- instrument \
+    $(MCTRACE) -- instrument \
 	--binary=$2-$(ARCH) \
 	--output=$2-$(ARCH).$3.inst \
 	--library=../library/$(ARCH)/platform_impl.o \
-	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
+	--var-mapping=$2-$(ARCH).$3.inst.json \
 	--script=$1
 endef
 
@@ -65,6 +77,36 @@ instrument_tests:
 	$(call do_instrument,../eval/graph-probe.d,read-syscall,5)
 	$(call do_instrument,../eval/graph-probe.d,read-write-syscall,5)
 	$(call do_instrument,../eval/graph-probe.d,slow-read-write,5)
+
+######################################################################
+# Additional testing with prebuilt binaries and associated probes.
+######################################################################
+
+define do_instrument_binary
+    $(MCTRACE) -- instrument \
+	--binary=../binaries/$(ARCH)/$2 \
+	--output=$2-$(ARCH).$3.inst \
+	--library=../library/$(ARCH)/platform_impl.o \
+	--var-mapping=/tmp/$2-$(ARCH).$3.inst.json \
+	--script=$1
+endef
+
+# Prebuilt binaries are generally real programs and it may not be possible
+# that every binary has a counterpart on each supported architecture. Instead
+# we define binary/probe combinations for each architecture separately. The
+# ARCH variable determines the exact set that gets instrumented for any 
+# particular run.
+
+
+instrument_binaries_PPC:
+	$(call do_instrument_binary,../eval/cat.probe.d,cat,1)
+	$(call do_instrument_binary,../eval/sha256sum.probe.d,sha256sum,1)
+
+instrument_binaries_X86:
+	$(call do_instrument_binary,../eval/cat.probe.d,cat,1)
+	$(call do_instrument_binary,../eval/sha256sum.probe.d,sha256sum,1)
+
+instrument_binaries: $(if $(filter PPC,$(ARCH)),instrument_binaries_PPC,instrument_binaries_X86)
 
 clean:
 	find . -name '*.o' -delete

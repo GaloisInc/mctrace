@@ -146,7 +146,6 @@ matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
   --
   let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symNames
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
-    -- Trace.traceShow (lastSymTgt, symNames, symAddrs) $
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
       let term DLN.:| rest = DLN.reverse insns

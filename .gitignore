@@ -1,8 +1,11 @@
-/dist-newstyle/
-/cabal.project.local*
-/.ghc*
+dist-newstyle/
+cabal.project.local*
+.ghc*
 dev_setup.log
 cabal.project
 cabal.project.freeze
 .*.swp
 musl-gcc
+musl-gcc-arm
+coreutils
+install-coreutils.log

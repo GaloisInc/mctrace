@@ -31,7 +31,6 @@ import           Data.Maybe ( fromMaybe, mapMaybe )
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Traversable as DT
-import qualified Debug.Trace as Trace
 import           Data.Tuple (swap)
 import qualified Renovate as R
 import qualified Renovate.Arch.PPC as RX
@@ -201,9 +200,7 @@ rewrite
   -> R.RewriteM MA.LogEvent RX.PPC32 (Maybe (R.ModifiedInstructions RX.PPC32))
 rewrite _probeIndex _env probeLocations _ symBlock =
   R.withSymbolicInstructions symBlock $ \irepr insns -> do
-    Trace.traceM ( "Rewriting!\n" )
     let probeInserters = MAP.matchProbes probeLocations symBlock
-    -- return (Just (R.ModifiedInstructions irepr insns))
     case probeInserters of
       [] -> return Nothing
       _ -> do

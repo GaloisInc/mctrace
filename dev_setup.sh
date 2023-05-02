@@ -72,8 +72,18 @@ function install_system_packages {
         libgmp-dev \
         zlib1g-dev \
         qemu-system-ppc \
+        qemu-system-arm \
+        qemu-user-binfmt \
         wget \
-        curl
+        curl \
+        qemu-user \
+        autoconf \
+        autopoint \
+        bison \
+        gperf \
+        texinfo \
+        autoconf \
+        automake
 }
 
 function install_ghcup {
@@ -130,7 +140,7 @@ function update_submodules {
     logged git submodule update --init
 }
 
-function build_musl_compiler {
+function build_ppc_musl_compiler {
     cd $HERE
 
     if [ ! -f "$HERE/musl-gcc/output/bin/powerpc-linux-muslsf-gcc" ]
@@ -148,6 +158,27 @@ function build_musl_compiler {
         logged make install
     else
         notice "PowerPC GCC cross compiler already built, skipping"
+    fi
+}
+
+function build_arm_musl_compiler {
+    cd $HERE
+
+    if [ ! -f "$HERE/musl-gcc-arm/output/bin/arm-linux-musleabi-gcc" ]
+    then
+        notice "Cloning and building ARM GCC cross compiler (this will take a while)"
+
+        logged git clone $MUSL_CROSS_MAKE_REPO musl-gcc-arm
+        cd musl-gcc-arm
+        logged git checkout $MUSL_CROSS_MAKE_REF
+
+        logged cp -f config.mak.dist config.mak
+        echo "TARGET = arm-linux-musleabi" >> config.mak
+
+        logged make
+        logged make install
+    else
+        notice "ARM GCC cross compiler already built, skipping"
     fi
 }
 
@@ -200,7 +231,8 @@ install_system_packages
 install_ghcup
 symlink_cabal_config
 update_submodules
-build_musl_compiler
+build_ppc_musl_compiler
+build_arm_musl_compiler
 install_docker
 
 notice "Done."
