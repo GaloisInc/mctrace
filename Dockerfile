@@ -73,6 +73,9 @@ COPY --from=base /lib/x86_64-linux-gnu/libicudata.so.70 /lib/x86_64-linux-gnu/li
 # Copy example probes and binaries
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/mctrace/tests /${TARGET_MCTRACE_ROOT}/examples
 
+# Copy Challenge 10 demo directory
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/cp10_demo /${TARGET_MCTRACE_ROOT}/
+
 # Copy documentation
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/README-release.md /${TARGET_MCTRACE_ROOT}/README.md
 
