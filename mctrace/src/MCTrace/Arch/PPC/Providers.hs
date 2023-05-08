@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE PolyKinds #-}
 -- | Definitions of probe providers for ppc_64
 --
 -- Note that the entry probes could fire *before* the syscall or *during* the
@@ -72,7 +73,7 @@ callProbe locationAnalysis RP.PPCRepr probeAddr =
       sconcat ( 
         loadConcreteAddress 3 globalStorePtr DLN.:|
         [ loadConcreteAddress 4 probeSupportFnsPtr
-        , loadImm32 5 0 -- TODO: Ucaller computation
+        , computeUCaller
         , annotateInstrWith addProbeFunAddress <$> il (D.Instruction D.BL (D.Calltarget (D.BT 0) :< Nil))
         ]
       )
@@ -84,44 +85,29 @@ callProbe locationAnalysis RP.PPCRepr probeAddr =
       case op of
         D.Calltarget _ -> D.Annotated (R.SymbolicRelocation probeAddr) op
         _ -> D.Annotated R.NoRelocation op
+    computeUCaller =
+      -- There is no *direct* way to get hold of the current PC on PPC as far
+      -- as I am aware or otherwise perform PC-relative addressing without
+      -- involving a call/branch. So, the idea here is create a call to the
+      -- very next instruction, capture the Link Register (LR) and then tweak it
+      -- to point to actual probe call instruction (which we have chosen as the
+      -- value we will return for ucaller on all architectures)
 
-  -- generatePushes ++
-  -- [ RP.annotateInstrWith addMemAddr $
-  --     RP.makeInstr repr "lea" [ F86.QWordReg F86.RDI
-  --                             , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
-  --                             ]
-  -- , RP.annotateInstrWith addProbeSupportFnsAddr $
-  --     RP.makeInstr repr "lea" [ F86.QWordReg F86.RSI
-  --                             , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
-  --                             ]
-  -- , RP.noAddr $
-  --     RP.makeInstr repr "lea" [ F86.QWordReg F86.RDX
-  --                             , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
-  --                             ]
-  -- , RP.annotateInstrWith addJumpTarget $
-  --     RP.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
-  -- ]
-  -- ++ generatePops
-  -- where
-  --   -- CHECK: We are pushing an odd number of 8 byte registers here. Will this screw
-  --   -- up stack alignment requirements (16 byte aligned) of PPC?
-  --   argRegs = [F86.RDI, F86.RSI, F86.RDX, F86.RCX, F86.R8, F86.R9, F86.RAX]
-  --   generatePushes = map (\r -> RP.noAddr $ RP.makeInstr repr "push" [F86.QWordReg r]) argRegs
-  --   generatePops = map (\r -> RP.noAddr $ RP.makeInstr repr "pop" [F86.QWordReg r]) (reverse argRegs)
-  --   addJumpTarget (RP.AnnotatedOperand v _) =
-  --     case v of
-  --       (F86.JumpOffset {}, _) -> RP.AnnotatedOperand v (R.SymbolicRelocation probeAddr)
-  --       _ -> RP.AnnotatedOperand v R.NoRelocation
-  --   addMemAddr (RP.AnnotatedOperand v _) =
-  --     case v of
-  --       (F86.VoidMem {}, _) -> RP.AnnotatedOperand v (R.PCRelativeRelocation globalStorePtr)
-  --       _ -> RP.AnnotatedOperand v R.NoRelocation
-  --   addProbeSupportFnsAddr (RP.AnnotatedOperand v _) =
-  --     case v of
-  --       (F86.VoidMem {}, _) -> RP.AnnotatedOperand v (R.PCRelativeRelocation probeSupportFnsPtr)
-  --       _ -> RP.AnnotatedOperand v R.NoRelocation
-  --   globalStorePtr = MA.injectedStorePointer (MA.injectedAssets locationAnalysis)
-  --   probeSupportFnsPtr = MA.probeSupportFunctionsPtr (MA.injectedAssets locationAnalysis)
+      -- NOTES:
+      --  1. Note that branch target values/offsets are left shifted by 2 to
+      --     compute the actual branch target. So using 1 as the offset actually
+      --     means 4, i.e. the next instruction
+      --  2. We are actually not saving/restoring the LR during this process as
+      --     it has already been saved in the preamble code we are inserting for
+      --     this probe call. So, we can afford to change its value without
+      --     additional work.
+      --  2. IMPORTANT: There is an implicit assumption that `ucaller` is the last
+      --     parameter to the probe as this simplifies the calculation needed to
+      --     tweak the captured LR to point to the probe call instruction.
+      i (D.Instruction D.BL (D.Calltarget (D.BT 1) :< Nil)) DLN.:|
+      [ i (D.Instruction D.MFLR (gpr 5 :< Nil)) 
+      , i (D.Instruction D.ADDI (gpr 5 :< D.S16imm 8 :< gpr_nor0 5 :< Nil))
+      ]
 
 -- | If the last instruction is a call or a jump, return its symbolic target
 --
