@@ -18,7 +18,7 @@ RUN \
     sudo
 
 # Get MCTrace
-RUN git clone https://github.com/GaloisInc/mctrace.git /root/mctrace -b feature/powerpc-support
+RUN git clone https://github.com/GaloisInc/mctrace.git /root/mctrace
 
 WORKDIR /root/mctrace
 
