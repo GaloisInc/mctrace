@@ -18,7 +18,6 @@ import qualified Data.List.NonEmpty as DLN
 import qualified Data.Text as T
 import qualified Data.Traversable as DT
 import           Numeric.Natural ( Natural )
-import qualified Prettyprinter as PP
 
 import           Language.DTrace.LexerWrapper ( Located(..) )
 import qualified Language.DTrace.ProbeDescription as LDP
