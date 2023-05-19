@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 module MCTrace.ProbeProvider (
     ProbeProvider(..)
   , ProbeInserter(..)
+  , isEntry
+  , isReturn
   ) where
 
 import qualified Data.List.NonEmpty as DLN
@@ -9,6 +12,7 @@ import qualified Prettyprinter as PP
 import qualified Renovate as R
 
 import qualified Language.DTrace as LD
+import qualified Language.DTrace.ProbeDescription as LDP
 import qualified MCTrace.Analysis as MA
 
 -- | A function to insert a probe into a basic block (represented as a stream of instructions)
@@ -42,3 +46,9 @@ data ProbeProvider globals arch =
                 -- The matcher gets the analysis results that indexed various
                 -- things necessary to identify probe insertion points
                 }
+
+isEntry :: LDP.ProbeComponent -> Bool
+isEntry = (== (LDP.mkIdentifier "entry"))
+
+isReturn :: LDP.ProbeComponent -> Bool
+isReturn = (== (LDP.mkIdentifier "return"))

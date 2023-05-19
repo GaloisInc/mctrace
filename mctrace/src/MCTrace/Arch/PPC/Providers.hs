@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Definitions of probe providers for ppc_64
 --
 -- Note that the entry probes could fire *before* the syscall or *during* the
@@ -25,7 +26,7 @@ import           Control.Exception ( assert )
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Map.Strict as Map
-import           Data.Maybe ( mapMaybe )
+import           Data.Maybe ( mapMaybe, catMaybes )
 import           Data.Parameterized.List(List(..))
 import           Data.Semigroup ( sconcat )
 import qualified Data.Text as T
@@ -131,7 +132,7 @@ withLastInstructionSymTarget def symBlock k = R.withSymbolicInstructions symBloc
 
 symAddressForSymbolPattern
   :: MA.ProbeLocationAnalysisResult globals RP.PPC32
-  -> String
+  -> LDP.ProbeComponent
   -> [R.SymbolicAddress RP.PPC32]
 symAddressForSymbolPattern locationAnalysis symPattern = do
   -- Find all (symbolic addresses of) all functions in the binary that match the given pattern
@@ -139,22 +140,22 @@ symAddressForSymbolPattern locationAnalysis symPattern = do
       lookupSymbolicAddr entryAddr = Map.findWithDefault (R.stableAddress entryAddr) entryAddr (MA.symbolicAddresses locationAnalysis)
   map lookupSymbolicAddr $ Map.elems relevantFns
   where
-    checkForMatch pattern fnName _ = LDP.matchWithPattern (T.pack pattern) (T.pack $ BSC.unpack fnName)
+    checkForMatch pattern fnName _ = LDP.matchWithPattern pattern (T.pack $ BSC.unpack fnName)
 
 
 matcherEntry
   :: R.SymbolicAddress RP.PPC32
   -> LD.ProbeDescription
-  -> [String]
+  -> [LDP.ProbeComponent]
   -> MA.ProbeLocationAnalysisResult globals RP.PPC32
   -> R.SymbolicBlock RP.PPC32
   -> Maybe (MP.ProbeInserter RP.PPC32)
-matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
+matcherEntry probeSymAddr _providerName symPatterns locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
   --
-  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symNames
+  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symPatterns
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
@@ -166,16 +167,16 @@ matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
 matcherExit
   :: R.SymbolicAddress RP.PPC32
   -> LD.ProbeDescription
-  -> [String]
+  -> [LDP.ProbeComponent]
   -> MA.ProbeLocationAnalysisResult globals RP.PPC32
   -> R.SymbolicBlock RP.PPC32
   -> Maybe (MP.ProbeInserter RP.PPC32)
-matcherExit probeSymAddr _providerName symNames locationAnalysis symBlock = do
+matcherExit probeSymAddr _providerName symPatterns locationAnalysis symBlock = do
   -- symbolic blocks have symbolic jump targets annotated on instructions;
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
   --
-  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symNames
+  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symPatterns
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
@@ -197,8 +198,8 @@ matchProbes probeLocations symBlock = do
     -- FIXME: The precise ordering needs more thought and especially how it interacts
     -- with the insertion process in `rewrite`. Consider another classification method as well
     reorder probeInserterPairs =
-      let entryProbes = filter (\(p, _) -> probeName p == T.pack "entry") probeInserterPairs
-          exitProbes = filter (\(p, _) -> probeName p == T.pack "return") probeInserterPairs
+      let entryProbes = filter (\(p, _) -> MP.isEntry $ probeName p) probeInserterPairs
+          exitProbes = filter (\(p, _) -> MP.isReturn $ probeName p) probeInserterPairs
       in entryProbes ++ exitProbes
     probeName p =  LD.probeName (MP.providerName p)
 
@@ -212,17 +213,22 @@ providerList probeLocations =
 
 makeStandardSyscallProvider ::  R.SymbolicAddress RP.PPC32 -> LDP.ProbeDescription -> MP.ProbeProvider globals RP.PPC32
 makeStandardSyscallProvider probeSymAddr probeDesc =
-  assert (probeName == T.pack "entry" || probeName == T.pack "return") provider
+  assert (MP.isEntry probeName || MP.isReturn probeName) provider
   where
-    fnName = LDP.probeFunction probeDesc
     probeName = LDP.probeName probeDesc
+    fnName = LDP.probeFunction probeDesc
+    patterns = catMaybes [ Just fnName
+                         , LDP.appendIdentifier fnName "@plt"
+                         ]
+
     provider = MP.ProbeProvider { MP.providerName = probeDesc
                                 , MP.providerDescription = desc
-                                , MP.providerMatcher = matcher probeSymAddr probeDesc [T.unpack fnName, T.unpack fnName ++ "@plt"]
+                                , MP.providerMatcher = matcher probeSymAddr probeDesc patterns
                                 }
-    matcher = if probeName == T.pack "entry" then matcherEntry else matcherExit
-    desc = PP.hsep [ PP.pretty "Probe fires at the"
-                   , PP.pretty (if probeName == T.pack "entry" then "entry to" else "return of")
-                   , PP.pretty (LDP.probeFunction probeDesc)
-                   , PP.pretty "calls"
-                   ]
+    matcher = if MP.isEntry probeName then matcherEntry else matcherExit
+    desc = PP.hsep
+        [ PP.pretty ("Probe fires at the"::String)
+        , PP.pretty (if MP.isEntry probeName then "entry to" else "return of"::String)
+        , PP.pretty $ LDP.probeFunction probeDesc
+        , PP.pretty ("calls"::String)
+        ]
