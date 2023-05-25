@@ -10,7 +10,7 @@ ifeq ($(DOCKER),1)
     # In Docker, mctrace is in the path (See Dockerfile)
     MCTRACE = mctrace
 else
-    MCTRACE = cabal exec mctrace
+    MCTRACE = $(shell find ../../../dist-newstyle -type f -name mctrace)
 endif
 
 ifeq ($(ARCH),PPC)
