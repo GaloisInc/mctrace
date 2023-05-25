@@ -19,6 +19,7 @@ extra-source-files:  CHANGELOG.md
 library
   exposed-modules:     MCTrace
                        MCTrace.Analysis
+                       MCTrace.Arch.Common
                        MCTrace.Arch.X86
                        MCTrace.Arch.X86.Providers
                        MCTrace.Arch.X86.Setup

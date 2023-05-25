@@ -22,11 +22,8 @@ module MCTrace.Arch.X86.Providers (
 
 import           Control.Monad ( guard )
 import           Control.Exception ( assert )
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List.NonEmpty as DLN
-import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe, catMaybes )
-import qualified Data.Text as T
 
 import qualified Flexdis86 as F86
 import qualified Prettyprinter as PP
@@ -38,6 +35,7 @@ import qualified Language.DTrace.Syntax.Typed as LDT
 import qualified Language.DTrace.ProbeDescription as LDP
 import qualified MCTrace.Analysis as MA
 import qualified MCTrace.ProbeProvider as MP
+import qualified MCTrace.Arch.Common as Common
 
 -- | Make an instruction sequence to call a probe
 --
@@ -120,19 +118,6 @@ withLastInstructionSymTarget def symBlock k =
           k symAddr
       _ -> def
 
-symAddressForSymbolPattern
-  :: MA.ProbeLocationAnalysisResult globals RX.X86_64
-  -> LDP.ProbeComponent
-  -> [R.SymbolicAddress RX.X86_64]
-symAddressForSymbolPattern locationAnalysis symPattern = do
-  -- Find all (symbolic addresses of) all functions in the binary that match the given pattern
-  let relevantFns = Map.filterWithKey (checkForMatch symPattern) (MA.functionEntryPoints locationAnalysis)
-      lookupSymbolicAddr entryAddr = Map.findWithDefault (R.stableAddress entryAddr) entryAddr (MA.symbolicAddresses locationAnalysis)
-  map lookupSymbolicAddr $ Map.elems relevantFns
-  where
-    checkForMatch pattern fnName _ = LDP.matchWithPattern pattern (T.pack $ BSC.unpack fnName)
-
-
 matcherEntry
   :: R.SymbolicAddress RX.X86_64
   -> LD.ProbeDescription
@@ -145,7 +130,7 @@ matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
   --
-  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symNames
+  let symAddrs = concatMap (Common.symAddressForSymbolPattern locationAnalysis) symNames
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
@@ -166,7 +151,7 @@ matcherExit probeSymAddr _providerName symNames locationAnalysis symBlock = do
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
   --
-  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symNames
+  let symAddrs = concatMap (Common.symAddressForSymbolPattern locationAnalysis) symNames
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->

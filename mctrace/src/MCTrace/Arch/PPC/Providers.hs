@@ -23,13 +23,10 @@ module MCTrace.Arch.PPC.Providers (
 
 import           Control.Monad ( guard )
 import           Control.Exception ( assert )
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List.NonEmpty as DLN
-import qualified Data.Map.Strict as Map
 import           Data.Maybe ( mapMaybe, catMaybes )
 import           Data.Parameterized.List(List(..))
 import           Data.Semigroup ( sconcat )
-import qualified Data.Text as T
 
 import qualified Prettyprinter as PP
 import qualified Dismantle.PPC as D
@@ -42,6 +39,7 @@ import qualified Language.DTrace.ProbeDescription as LDP
 import           MCTrace.Arch.PPC.Internal
 import qualified MCTrace.Analysis as MA
 import qualified MCTrace.ProbeProvider as MP
+import qualified MCTrace.Arch.Common as Common
 
 -- | Make an instruction sequence to call a probe
 --
@@ -130,19 +128,6 @@ withLastInstructionSymTarget def symBlock k = R.withSymbolicInstructions symBloc
         -- TODO: Is it possible to also get D.Condbrtarget ?
         _ -> def
 
-symAddressForSymbolPattern
-  :: MA.ProbeLocationAnalysisResult globals RP.PPC32
-  -> LDP.ProbeComponent
-  -> [R.SymbolicAddress RP.PPC32]
-symAddressForSymbolPattern locationAnalysis symPattern = do
-  -- Find all (symbolic addresses of) all functions in the binary that match the given pattern
-  let relevantFns = Map.filterWithKey (checkForMatch symPattern) (MA.functionEntryPoints locationAnalysis)
-      lookupSymbolicAddr entryAddr = Map.findWithDefault (R.stableAddress entryAddr) entryAddr (MA.symbolicAddresses locationAnalysis)
-  map lookupSymbolicAddr $ Map.elems relevantFns
-  where
-    checkForMatch pattern fnName _ = LDP.matchWithPattern pattern (T.pack $ BSC.unpack fnName)
-
-
 matcherEntry
   :: R.SymbolicAddress RP.PPC32
   -> LD.ProbeDescription
@@ -155,7 +140,7 @@ matcherEntry probeSymAddr _providerName symPatterns locationAnalysis symBlock = 
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
   --
-  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symPatterns
+  let symAddrs = concatMap (Common.symAddressForSymbolPattern locationAnalysis) symPatterns
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
@@ -176,7 +161,7 @@ matcherExit probeSymAddr _providerName symPatterns locationAnalysis symBlock = d
   -- if the last one points to one of the functions we are looking for, we
   -- can fire the probe.
   --
-  let symAddrs = concatMap (symAddressForSymbolPattern locationAnalysis) symPatterns
+  let symAddrs = concatMap (Common.symAddressForSymbolPattern locationAnalysis) symPatterns
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
