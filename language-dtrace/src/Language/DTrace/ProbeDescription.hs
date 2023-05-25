@@ -3,7 +3,7 @@ module Language.DTrace.ProbeDescription (
     ProbeDescription(..)
   , matchWithPattern
 
-  , ProbeComponent
+  , ProbeComponent(..)
   , mkPattern
   , mkIdentifier
   , mkFreePattern
