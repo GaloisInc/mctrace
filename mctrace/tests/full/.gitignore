@@ -6,3 +6,4 @@ slow-read-write
 *-X86
 *-PPC
 *.json
+*.log
