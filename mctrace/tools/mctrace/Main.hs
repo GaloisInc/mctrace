@@ -136,7 +136,12 @@ instrument iopts = do
           let configs = archConfigurations probeIndex mcLibraryELF
           R.withElfConfig someHeader configs $ \renovateConfig headerInfo loadedBinary -> do
             let strat = R.LayoutStrategy R.Parallel R.BlockGrouping R.AlwaysTrampoline
-            (newElf0, ares, rwInfo) <- R.rewriteElf renovateLogger renovateConfig hdlAlloc headerInfo loadedBinary strat
+                renovateConfig' = updateConfigFromOptions renovateConfig
+                updateConfigFromOptions cfg =
+                    case O.iTextSectionName iopts of
+                        Nothing -> cfg
+                        Just name -> cfg { R.rcTextSectionName = name }
+            (newElf0, ares, rwInfo) <- R.rewriteElf renovateLogger renovateConfig' hdlAlloc headerInfo loadedBinary strat
             let symbolicEntryAddr = MA.injectedEntryAddr (MA.injectedAssets ares)
             let redirRes = R.riRedirectionResult rwInfo
             case Map.lookup symbolicEntryAddr (R.rrSymbolicToConcreteMap redirRes) of
