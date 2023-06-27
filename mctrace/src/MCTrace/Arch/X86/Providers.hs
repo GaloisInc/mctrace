@@ -37,24 +37,17 @@ import qualified MCTrace.Analysis as MA
 import qualified MCTrace.ProbeProvider as MP
 import qualified MCTrace.Arch.Common as Common
 
--- | Make an instruction sequence to call a probe
+-- | Make an instruction sequence to call an entry probe
 --
 -- This has to restore the environment to exactly what it was before the call.
--- It needs to pass the pointer to global storage as the only argument (for now;
--- syscall parameters can be made available to probes later).  The first
--- parameter to a function (under the sysv ABI) is passed in %rdi.
+-- It currently passes the following arguments to the probe (in order):
+--  + Pointer to the global storage
+--  + An array of support functions that the probe can access
+--  + The `ucaller` value - specified to be the address of the probe call instruction
 --
--- > push %rdi
--- > mov 0x0(globalvar), %rdi
--- > call probe
--- > pop %rdi
---
--- Note that we generate a placeholder offset for the @mov@ instruction; we
--- don't know the real offset to plug in until this code is actually inserted
--- and has its relocations fixed up.  We represent the real location by
--- annotating that operand with the concrete address allocated to the variable
--- we load.
-callProbe
+-- Note that we rely on renovate's relocation support to post-facto fix up addresses
+-- by annotating the corresponding arguments.
+callEntryProbe
   :: MA.ProbeLocationAnalysisResult globals RX.X86_64
   -- ^ Analysis results we can draw from (including the pointer to global storage)
   -> R.InstructionArchRepr RX.X86_64 tp
@@ -62,7 +55,64 @@ callProbe
   -> R.SymbolicAddress RX.X86_64
   -- ^ The symbolic address of the injected probe function
   -> [R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)]
-callProbe locationAnalysis repr@RX.X86Repr probeAddr =
+callEntryProbe locationAnalysis repr@RX.X86Repr probeAddr =
+  generatePushes ++
+  [ RX.annotateInstrWith addMemAddr $
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
+                              , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
+                              ]
+  , RX.annotateInstrWith addProbeSupportFnsAddr $
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
+                              , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
+                              ]
+  , RX.noAddr $
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RDX
+                              , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
+                              ]
+  , RX.annotateInstrWith addJumpTarget $
+      RX.makeInstr repr "call" [F86.JumpOffset F86.JSize32 (F86.FixedOffset 0)]
+  ]
+  ++ generatePops
+  where
+    -- CHECK: We are pushing an odd number of 8 byte registers here. Will this screw
+    -- up stack alignment requirements (16 byte aligned) of X86_64?
+    argRegs = [F86.RDI, F86.RSI, F86.RDX, F86.RCX, F86.R8, F86.R9, F86.RAX]
+    generatePushes = map (\r -> RX.noAddr $ RX.makeInstr repr "push" [F86.QWordReg r]) argRegs
+    generatePops = map (\r -> RX.noAddr $ RX.makeInstr repr "pop" [F86.QWordReg r]) (reverse argRegs)
+    addJumpTarget (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.JumpOffset {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation probeAddr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
+    addMemAddr (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation globalStorePtr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
+    addProbeSupportFnsAddr (RX.AnnotatedOperand v _) =
+      case v of
+        (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation probeSupportFnsPtr)
+        _ -> RX.AnnotatedOperand v R.NoRelocation
+    globalStorePtr = MA.injectedStorePointer (MA.injectedAssets locationAnalysis)
+    probeSupportFnsPtr = MA.probeSupportFunctionsPtr (MA.injectedAssets locationAnalysis)
+
+-- | Make an instruction sequence to call an exit probe
+--
+-- This has to restore the environment to exactly what it was before the call.
+-- It currently passes the following arguments to the probe (in order):
+--  + Pointer to the global storage
+--  + An array of support functions that the probe can access
+--  + The `ucaller` value - specified to be the address of the probe call instruction
+--
+-- Note that we rely on renovate's relocation support to post-facto fix up addresses
+-- by annotating the corresponding arguments.
+callExitProbe
+  :: MA.ProbeLocationAnalysisResult globals RX.X86_64
+  -- ^ Analysis results we can draw from (including the pointer to global storage)
+  -> R.InstructionArchRepr RX.X86_64 tp
+  -- ^ The instruction repr (only one for x86_64)
+  -> R.SymbolicAddress RX.X86_64
+  -- ^ The symbolic address of the injected probe function
+  -> [R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)]
+callExitProbe locationAnalysis repr@RX.X86Repr probeAddr =
   generatePushes ++
   [ RX.annotateInstrWith addMemAddr $
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
@@ -135,7 +185,7 @@ matcherEntry probeSymAddr _providerName symNames locationAnalysis symBlock = do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
       let term DLN.:| rest = DLN.reverse insns
-          callSequence = callProbe locationAnalysis irep probeSymAddr
+          callSequence = callEntryProbe locationAnalysis irep probeSymAddr
           rinsns = term DLN.:| (reverse callSequence <> rest)
       in DLN.reverse rinsns
 
@@ -155,10 +205,7 @@ matcherExit probeSymAddr _providerName symNames locationAnalysis symBlock = do
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
-      -- FIXME: Currently the instructions to insert the probe are the same, irrespective
-      -- of whether it is at entry or exit. This is likely to change in the future. So, it
-      -- may be good to have a separate version of `callProbe` for exit probes.
-      let callSequence = callProbe locationAnalysis irep probeSymAddr
+      let callSequence = callExitProbe locationAnalysis irep probeSymAddr
           term DLN.:| rest = insns
       in term DLN.:| (rest <> callSequence)
 
