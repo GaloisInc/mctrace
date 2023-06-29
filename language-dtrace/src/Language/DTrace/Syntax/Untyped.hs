@@ -96,6 +96,7 @@ deriving instance Functor App
 
 data Builtin = Timestamp
              | UCaller
+             | Arg0
   deriving (Eq, Ord, Show)  
 
 newtype Expr = Expr { exprApp :: App (Located Expr) }
