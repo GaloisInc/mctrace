@@ -35,7 +35,7 @@ type BuiltinVarCompilerMap = Map.Map ST.Builtin BuiltinVarCompiler
 builtinVarCompilers :: Map.Map ST.Builtin BuiltinVarCompiler
 builtinVarCompilers = Map.fromList [ (ST.Timestamp, timestampBuiltinCompiler)
                                    , (ST.UCaller, uCallerBuiltinCompiler)
-                                   , (ST.Arg0, arg0BuiltinCompiler)
+                                   , (ST.Arg (ST.argIndex 0), arg0BuiltinCompiler)
                                    ]
 
 

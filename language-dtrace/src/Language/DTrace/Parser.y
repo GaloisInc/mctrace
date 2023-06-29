@@ -334,7 +334,7 @@ matchBuiltinVar :: T.Text -> Maybe DS.Builtin
 matchBuiltinVar t = case T.unpack t of
   "timestamp" -> Just DS.Timestamp
   "ucaller" -> Just DS.UCaller
-  "arg0" -> Just (DS.Arg0)
+  "arg0" -> Just (DS.Arg (DS.argIndex 0))
   _ -> Nothing
 
 -- Identifier to the variable
