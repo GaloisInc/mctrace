@@ -43,6 +43,7 @@ import qualified MCTrace.Arch.Common as Common
 -- It currently passes the following arguments to the probe (in order):
 --  + Pointer to the global storage
 --  + An array of support functions that the probe can access
+--  + The `arg0` value - the first argument to function being probed
 --  + The `ucaller` value - specified to be the address of the probe call instruction
 --
 -- Note that we rely on renovate's relocation support to post-facto fix up addresses
@@ -57,7 +58,15 @@ callEntryProbe
   -> [R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64)]
 callEntryProbe locationAnalysis repr@RX.X86Repr probeAddr =
   generatePushes ++
-  [ RX.annotateInstrWith addMemAddr $
+  [ -- NOTE: The first argument to the function being probed (`arg0`) needs to be passed to the
+    --       probe. The argument can be found in RDI at this point. While we need to pass this
+    --       value as the 3rd argument to the probe (i.e. RDX), the easiest place to capture this
+    --        it right here, before we mangle the registers for the probe call we are inserting.
+    RX.noAddr $
+      RX.makeInstr repr "mov" [ F86.QWordReg F86.RDX
+                              , F86.QWordReg F86.RDI
+                              ]
+  , RX.annotateInstrWith addMemAddr $
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RDI
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
@@ -66,7 +75,7 @@ callEntryProbe locationAnalysis repr@RX.X86Repr probeAddr =
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
   , RX.noAddr $
-      RX.makeInstr repr "lea" [ F86.QWordReg F86.RDX
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RCX
                               , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
   , RX.annotateInstrWith addJumpTarget $
@@ -100,6 +109,7 @@ callEntryProbe locationAnalysis repr@RX.X86Repr probeAddr =
 -- It currently passes the following arguments to the probe (in order):
 --  + Pointer to the global storage
 --  + An array of support functions that the probe can access
+--  + The `arg0` value - in the exit probe, it is the result of the function that was probed
 --  + The `ucaller` value - specified to be the address of the probe call instruction
 --
 -- Note that we rely on renovate's relocation support to post-facto fix up addresses
@@ -122,8 +132,13 @@ callExitProbe locationAnalysis repr@RX.X86Repr probeAddr =
       RX.makeInstr repr "lea" [ F86.QWordReg F86.RSI
                               , F86.VoidMem(F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
+    -- NOTE: The return value should be in RAX
   , RX.noAddr $
-      RX.makeInstr repr "lea" [ F86.QWordReg F86.RDX
+      RX.makeInstr repr "mov" [ F86.QWordReg F86.RDX
+                              , F86.QWordReg F86.RAX
+                              ]
+  , RX.noAddr $
+      RX.makeInstr repr "lea" [ F86.QWordReg F86.RCX
                               , F86.VoidMem (F86.IP_Offset_64 F86.SS (F86.Disp32 (F86.Imm32Concrete 0)))
                               ]
   , RX.annotateInstrWith addJumpTarget $
