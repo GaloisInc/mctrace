@@ -41,24 +41,18 @@ import qualified MCTrace.Analysis as MA
 import qualified MCTrace.ProbeProvider as MP
 import qualified MCTrace.Arch.Common as Common
 
--- | Make an instruction sequence to call a probe
+-- | Make an instruction sequence to call an entry probe
 --
 -- This has to restore the environment to exactly what it was before the call.
--- It needs to pass the pointer to global storage as the only argument (for now;
--- syscall parameters can be made available to probes later).  The first
--- parameter to a function (under the sysv ABI) is passed in %rdi.
+-- It currently passes the following arguments to the probe (in order):
+--  + Pointer to the global storage
+--  + An array of support functions that the probe can access
+--  + The `arg0` value - the first argument to function being probed
+--  + The `ucaller` value - specified to be the address of the probe call instruction
 --
--- > push %rdi
--- > mov 0x0(globalvar), %rdi
--- > call probe
--- > pop %rdi
---
--- Note that we generate a placeholder offset for the @mov@ instruction; we
--- don't know the real offset to plug in until this code is actually inserted
--- and has its relocations fixed up.  We represent the real location by
--- annotating that operand with the concrete address allocated to the variable
--- we load.
-callProbe
+-- Note that we rely on renovate's relocation support to post-facto fix up addresses
+-- by annotating the corresponding arguments.
+callEntryProbe
   :: MA.ProbeLocationAnalysisResult globals RP.PPC32
   -- ^ Analysis results we can draw from (including the pointer to global storage)
   -> R.InstructionArchRepr RP.PPC32 tp
@@ -66,12 +60,15 @@ callProbe
   -> R.SymbolicAddress RP.PPC32
   -- ^ The symbolic address of the injected probe function
   -> DLN.NonEmpty (R.Instruction RP.PPC32 tp (R.Relocation RP.PPC32))
-callProbe locationAnalysis RP.PPCRepr probeAddr =
-  withCallerSaveRegisters $ 
+callEntryProbe locationAnalysis RP.PPCRepr probeAddr =
+  withCallerSaveRegisters $
     -- withSavedLinkRegister $
-      sconcat ( 
-        loadConcreteAddress 3 globalStorePtr DLN.:|
-        [ loadConcreteAddress 4 probeSupportFnsPtr
+      sconcat (
+        -- NOTE: Computing the arg0 has to be done first before we mangle
+        --       registers for the call to be probe.
+        computeArg0 DLN.:|
+        [ loadConcreteAddress 3 globalStorePtr
+        , loadConcreteAddress 4 probeSupportFnsPtr
         , computeUCaller
         , annotateInstrWith addProbeFunAddress <$> il (D.Instruction D.BL (D.Calltarget (D.BT 0) :< Nil))
         ]
@@ -84,6 +81,12 @@ callProbe locationAnalysis RP.PPCRepr probeAddr =
       case op of
         D.Calltarget _ -> D.Annotated (R.SymbolicRelocation probeAddr) op
         _ -> D.Annotated R.NoRelocation op
+    computeArg0 =
+      -- The first argument to the function being probed (`arg0`) needs to be passed to the
+      -- probe. The argument can be found in r3 (if we do this before we mangle the registers).
+      -- The probe expects this to be the third argument (i.e. in register r5)
+      -- IMPORTANT: Make sure this is invoked before we mangle the registers
+      il (D.Instruction D.ORI (gpr 5 :< D.U16imm 0 :< gpr 3 :< Nil))
     computeUCaller =
       -- There is no *direct* way to get hold of the current PC on PPC as far
       -- as I am aware or otherwise perform PC-relative addressing without
@@ -104,8 +107,78 @@ callProbe locationAnalysis RP.PPCRepr probeAddr =
       --     parameter to the probe as this simplifies the calculation needed to
       --     tweak the captured LR to point to the probe call instruction.
       i (D.Instruction D.BL (D.Calltarget (D.BT 1) :< Nil)) DLN.:|
-      [ i (D.Instruction D.MFLR (gpr 5 :< Nil)) 
-      , i (D.Instruction D.ADDI (gpr 5 :< D.S16imm 8 :< gpr_nor0 5 :< Nil))
+      [ i (D.Instruction D.MFLR (gpr 6 :< Nil))
+      , i (D.Instruction D.ADDI (gpr 6 :< D.S16imm 8 :< gpr_nor0 6 :< Nil))
+      ]
+
+-- | Make an instruction sequence to call an entry probe
+--
+-- This has to restore the environment to exactly what it was before the call.
+-- It currently passes the following arguments to the probe (in order):
+--  + Pointer to the global storage
+--  + An array of support functions that the probe can access
+--  + The `arg0` value - in the exit probe, it is the result of the function that was probed
+--  + The `ucaller` value - specified to be the address of the probe call instruction
+--
+-- Note that we rely on renovate's relocation support to post-facto fix up addresses
+-- by annotating the corresponding arguments.
+callExitProbe
+  :: MA.ProbeLocationAnalysisResult globals RP.PPC32
+  -- ^ Analysis results we can draw from (including the pointer to global storage)
+  -> R.InstructionArchRepr RP.PPC32 tp
+  -- ^ The instruction repr (only one for ppc_64)
+  -> R.SymbolicAddress RP.PPC32
+  -- ^ The symbolic address of the injected probe function
+  -> DLN.NonEmpty (R.Instruction RP.PPC32 tp (R.Relocation RP.PPC32))
+callExitProbe locationAnalysis RP.PPCRepr probeAddr =
+  withCallerSaveRegisters $
+    -- withSavedLinkRegister $
+      sconcat (
+        -- NOTE: Computing the arg0 has to be done first before we mangle
+        --       registers for the call to be probe.
+        computeArg0 DLN.:|
+        [ loadConcreteAddress 3 globalStorePtr
+        , loadConcreteAddress 4 probeSupportFnsPtr
+        , computeUCaller
+        , annotateInstrWith addProbeFunAddress <$> il (D.Instruction D.BL (D.Calltarget (D.BT 0) :< Nil))
+        ]
+      )
+  where
+    globalStorePtr = MA.injectedStorePointer (MA.injectedAssets locationAnalysis)
+    probeSupportFnsPtr = MA.probeSupportFunctionsPtr (MA.injectedAssets locationAnalysis)
+    addProbeFunAddress :: D.Operand x -> D.Annotated (R.Relocation RP.PPC32) D.Operand x
+    addProbeFunAddress op =
+      case op of
+        D.Calltarget _ -> D.Annotated (R.SymbolicRelocation probeAddr) op
+        _ -> D.Annotated R.NoRelocation op
+    computeArg0 =
+      -- In the return probe, `arg0` is the result of the function being probed.
+      -- The value can be found in r3, if we do this before we mangle the registers.
+      -- The probe expects this to be the third argument (i.e. in register r5)
+      -- IMPORTANT: Make sure this is invoked before we mangle the registers
+      il (D.Instruction D.ORI (gpr 5 :< D.U16imm 0 :< gpr 3 :< Nil))
+    computeUCaller =
+      -- There is no *direct* way to get hold of the current PC on PPC as far
+      -- as I am aware or otherwise perform PC-relative addressing without
+      -- involving a call/branch. So, the idea here is create a call to the
+      -- very next instruction, capture the Link Register (LR) and then tweak it
+      -- to point to actual probe call instruction (which we have chosen as the
+      -- value we will return for ucaller on all architectures)
+
+      -- NOTES:
+      --  1. Note that branch target values/offsets are left shifted by 2 to
+      --     compute the actual branch target. So using 1 as the offset actually
+      --     means 4, i.e. the next instruction
+      --  2. We are actually not saving/restoring the LR during this process as
+      --     it has already been saved in the preamble code we are inserting for
+      --     this probe call. So, we can afford to change its value without
+      --     additional work.
+      --  2. IMPORTANT: There is an implicit assumption that `ucaller` is the last
+      --     parameter to the probe as this simplifies the calculation needed to
+      --     tweak the captured LR to point to the probe call instruction.
+      i (D.Instruction D.BL (D.Calltarget (D.BT 1) :< Nil)) DLN.:|
+      [ i (D.Instruction D.MFLR (gpr 6 :< Nil))
+      , i (D.Instruction D.ADDI (gpr 6 :< D.S16imm 8 :< gpr_nor0 6 :< Nil))
       ]
 
 -- | If the last instruction is a call or a jump, return its symbolic target
@@ -145,7 +218,7 @@ matcherEntry probeSymAddr _providerName symPatterns locationAnalysis symBlock = 
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
       let term DLN.:| rest = DLN.reverse insns
-          callSequence = DLN.toList $ callProbe locationAnalysis irep probeSymAddr
+          callSequence = DLN.toList $ callEntryProbe locationAnalysis irep probeSymAddr
           rinsns = term DLN.:| (reverse callSequence <> rest)
       in DLN.reverse rinsns
 
@@ -165,10 +238,7 @@ matcherExit probeSymAddr _providerName symPatterns locationAnalysis symBlock = d
   withLastInstructionSymTarget Nothing symBlock $ \lastSymTgt -> do
     guard (lastSymTgt `elem` symAddrs)
     return $ MP.ProbeInserter $ \irep insns ->
-      -- FIXME: Currently the instructions to insert the probe are the same, irrespective
-      -- of whether it is at entry or exit. This is likely to change in the future. So, it
-      -- may be good to have a separate version of `callProbe` for exit probes.
-      let callSequence = DLN.toList $ callProbe locationAnalysis irep probeSymAddr
+      let callSequence = DLN.toList $ callExitProbe locationAnalysis irep probeSymAddr
           term DLN.:| rest = insns
       in term DLN.:| (rest <> callSequence)
 
