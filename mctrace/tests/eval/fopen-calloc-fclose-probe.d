@@ -1,7 +1,6 @@
 long elapsed;
 long ts;
 long prog_cntr;
-int arg;
 
 ::fopen:entry, ::fclose:entry, ::calloc:entry
 {
