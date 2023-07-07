@@ -202,10 +202,43 @@ compileExpr globals supportFnsOperand arg0Value uCallerPointer localVars localOp
         let sz = Ctx.sizeInt $ Ctx.size args
         when (sz /= 1) $
             error $ "BUG: compileExpr: send() call had arg list of unexpected length: " <> show sz
-        Ctx.traverseWithIndex_ (compileSend globals supportFnsOperand arg0Value uCallerPointer localVars localOperands) args
-        return $ IR.ConstantOperand $ zeroInit ST.VoidRepr
+        ops <- Ctx.traverseAndCollect (compileSend globals supportFnsOperand arg0Value uCallerPointer localVars localOperands) args
+        return $ ops !! 0
+
+    ST.Call (ST.BVRepr n) "copyint32" args
+        | Just _ <- PN.testEquality n TC.n32 -> do
+            let expectedArgsRepr = Ctx.singleton (ST.BVRepr TC.n32)
+            argsRepr <- Ctx.traverseWithIndex (const $ regTypeRepr localVars) args
+            case PN.testEquality argsRepr expectedArgsRepr of
+                Nothing ->
+                    MP.panic MP.LLVMCodegen "compileExpr"
+                             ["copyint32() call had arg list of unexpected length"]
+                Just PN.Refl -> do
+                    ops <- Ctx.traverseAndCollect (compileCopyInt32 globals supportFnsOperand
+                                                   arg0Value uCallerPointer localVars localOperands) args
+                    return $ ops !! 0
 
     _ -> error "compileExpr: got an unsupported expression"
+
+compileCopyInt32 :: GlobalStore
+                 -> ProbeSupportFunctions
+                 -> Arg0Value
+                 -> UCallerPointer
+                 -> Ctx.Assignment ST.LocalVariable locals
+                 -> Ctx.Assignment (C.Const IR.Operand) locals
+                 -> Ctx.Index tps tp
+                 -> ST.Reg globals locals tp
+                 -> IRB.IRBuilderT (Builder globals) [IR.Operand]
+compileCopyInt32 globals supportFnsOperand arg0Value uCallerPointer localVars localOperands _ arg = do
+    let ty = ST.BVRepr TC.n32
+    r <- regTypeRepr localVars arg
+    case PN.testEquality ty r of
+        Nothing ->
+            MP.panic MP.LLVMCodegen "compileCopyInt32" ["got a copyint32() argument that isn't the right type"]
+        Just PN.Refl -> do
+            valOperand <- op globals supportFnsOperand arg0Value uCallerPointer localOperands arg
+            addrOperand <- IRB.inttoptr valOperand $ pointerType IRT.i32
+            (:[]) <$> IRB.load addrOperand 0
 
 compileSend :: GlobalStore
             -> ProbeSupportFunctions
@@ -215,7 +248,7 @@ compileSend :: GlobalStore
             -> Ctx.Assignment (C.Const IR.Operand) locals
             -> Ctx.Index tps tp
             -> ST.Reg globals locals tp
-            -> IRB.IRBuilderT (Builder globals) ()
+            -> IRB.IRBuilderT (Builder globals) [IR.Operand]
 compileSend globals supportFnsOperand arg0Value uCallerPointer localVars localOperands _ arg = do
     let ty = ST.BVRepr TC.n32
     r <- regTypeRepr localVars arg
@@ -223,7 +256,7 @@ compileSend globals supportFnsOperand arg0Value uCallerPointer localVars localOp
         Nothing -> error "BUG: compileSend got a send() argument that isn't the right type"
         Just PN.Refl -> do
             valOperand <- op globals supportFnsOperand arg0Value uCallerPointer localOperands arg
-            sendStatement globals supportFnsOperand valOperand
+            (:[]) <$> sendStatement globals supportFnsOperand valOperand
 
 compileStatement :: GlobalStore
                  -> ProbeSupportFunctions
@@ -274,7 +307,7 @@ compileProbeBody globalOperands supportFnsOperand arg0Value uCallerPointer local
 sendStatement :: GlobalStore
               -> ProbeSupportFunctions
               -> IR.Operand
-              -> IRB.IRBuilderT (Builder globals) ()
+              -> IRB.IRBuilderT (Builder globals) IR.Operand
 sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunctions) arg = do
   fnAddr <- IRB.gep probeSupportFunctions [IRB.int32 sendFnIndex]
   fn <- IRB.load fnAddr 0
@@ -283,7 +316,7 @@ sendStatement (GlobalStore globalStore) (ProbeSupportFunctions probeSupportFunct
   castedGlobalStore <- IRB.bitcast gStore (pointerType IRT.i8)
   globalsSize <- fromIntegral <$> calcGlobalsSize
   let operands = [(arg, []), (castedGlobalStore, []), (IRBC.int32 globalsSize, [])]
-  CMS.void $ IRB.call castedFn operands
+  IRB.call castedFn operands
   where
     sendFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Send
     sendFnType = IRT.FunctionType IRT.VoidType [IRT.i32, pointerType IRT.i8, IRT.i32] False

@@ -213,6 +213,8 @@ typeOfExpr e =
     SU.BVLshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
     SU.BVAshr e1 e2 -> typeOfExpr (LDL.value e1) <|> typeOfExpr (LDL.value e2)
 
+    SU.Call {} -> Nothing
+
 typeOfBuiltin :: SU.Builtin -> Some ST.Repr
 typeOfBuiltin SU.Timestamp = Some (ST.BVRepr n64)
 typeOfBuiltin SU.UCaller = Some (ST.BVRepr n64) -- FIXME: I don't think this can always be right
@@ -464,6 +466,18 @@ translateExpr s0 ex0@(LDL.Located _ (SU.Expr app)) onError k =
                   Just PC.Refl -> do
                       let s2 = writeVoidStmt s1 (ST.Call ST.VoidRepr name $ Ctx.singleton nIdx)
                       k s2 ST.VoidReg
+
+    -- "copyint32" action: u32 copyint32(u32)
+    SU.Call name [n]
+      | name == T.pack "copyint32" ->
+          translateExpr s0 n onError $ \s1 argIdx -> do
+              let resultTy = ST.BVRepr n32
+              withFreshLocal s1 resultTy $ \s2 destIdx -> do
+                  case PC.testEquality (regType s1 argIdx) resultTy of
+                      Nothing -> onError ex0 (ArgumentTypeMismatch n resultTy (regType s1 argIdx))
+                      Just PC.Refl -> do
+                          let s3 = setReg s2 destIdx (ST.Call resultTy name $ Ctx.singleton $ unsafeCoerce argIdx)
+                          k s3 (ST.LocalReg destIdx)
 
     _ -> error ("Panic, unhandled expression: " ++ show ex0)
 
