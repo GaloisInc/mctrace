@@ -61,9 +61,9 @@ used to instrument them. The current demonstration has the following
 limitations:
 
  - At this time, MCTrace supports only statically-linked input binaries.
- - The binaries run in Linux userspace for their respective
-   architectures. Future work will involve supporting "bare-metal"
-   PowerPC programs.
+ - The binaries in the `examples/` directory run in Linux userspace for
+   their respective architectures. Specific releases may include additional
+   binaries for other platforms.
  - Currently, MCTrace support the following built-ins: `timestamp`, `ucaller`
    and `arg0`. MCTrace also supports an explicit `send` action of the form:
    `send(<numeric channel id>)`; invoking `send` will result in an invocation
@@ -71,11 +71,11 @@ limitations:
    the global data store. It also supports a `copyint32(<address>)` routine
    that returns the 32-bit value from the specified location.
 
-   *Limitations*: in the current implementation, `arg0` always returns a 32-bit value
-   (on both PowerPC and x86-64 platforms). Similarly, `copyint32` takes a 32-bit address
+   In the current implementation, `arg0` always returns a 32-bit value
+   (on both PowerPC and `x86-64` platforms). Similarly, `copyint32` takes a 32-bit address
    as its input on both platforms (and returns a 32-bit value). As a result, these
    work best on the PowerPC 32-bit platform. A future version will update these to
-   work better on the x86-64 platform.
+   work better on the `x86-64` platform.
  - Platform API implementations are subject to the following
    restrictions:
    - Functions in the Platform API implementation must be self-contained
