@@ -30,6 +30,9 @@ data IOptions =
            , iLibraryFile :: FilePath
            -- ^ The runtime support library (as a single object file) to be inserted
            -- in to the modified binary
+           , iTextSectionName :: Maybe String
+           -- ^ The name of the section to treat as the ".text" section
+           -- when analyzing the input binary
            }
 
 -- | Options for the data extraction command
@@ -93,7 +96,13 @@ options = O.info (O.helper <*> O.hsubparser parser)
                            ( O.long "library"
                            <> O.metavar "FILE"
                            <> O.help "A single object file containing the runtime support library"
+                           )
+                       <*> O.optional (O.strOption
+                           ( O.long "text-section"
+                           <> O.metavar "SECTION"
+                           <> O.help "The name of the section to treat as the \".text\" section of the input binary"
                            ))
+                           )
     eparser = Extract <$> (EOptions <$> O.strOption
                            ( O.long "var-mapping"
                            <> O.metavar "FILE"

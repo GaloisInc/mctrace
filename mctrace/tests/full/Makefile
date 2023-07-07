@@ -10,7 +10,7 @@ ifeq ($(DOCKER),1)
     # In Docker, mctrace is in the path (See Dockerfile)
     MCTRACE = mctrace
 else
-    MCTRACE = cabal exec mctrace
+    MCTRACE = $(shell find ../../../dist-newstyle -type f -name mctrace)
 endif
 
 ifeq ($(ARCH),PPC)
@@ -77,6 +77,10 @@ instrument_tests:
 	$(call do_instrument,../eval/graph-probe.d,read-syscall,5)
 	$(call do_instrument,../eval/graph-probe.d,read-write-syscall,5)
 	$(call do_instrument,../eval/graph-probe.d,slow-read-write,5)
+
+	$(call do_instrument,../eval/arg0-probe.d,read-syscall,6)
+	$(call do_instrument,../eval/arg0-probe.d,read-write-syscall,6)
+	$(call do_instrument,../eval/arg0-probe.d,slow-read-write,6)
 
 ######################################################################
 # Additional testing with prebuilt binaries and associated probes.

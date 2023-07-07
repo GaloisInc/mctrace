@@ -202,9 +202,9 @@ Stmts :: { [LDLW.Located DS.Stmt] }
 Stmts : ReverseStmts { reverse $1 }
 
 -- FIXME: These are actually a superset of identifiers that can contain dashes
-MaybeProbeComponent :: { Maybe (LDLW.Lexeme DT.Token, T.Text) }
-MaybeProbeComponent : IDENTIFIER { Just $1 }
-                    | PATTERN { Just $1 }
+MaybeProbeComponent :: { Maybe (LDLW.Lexeme DT.Token, LDP.ProbeComponent) }
+MaybeProbeComponent : IDENTIFIER { Just $ mapSnd LDP.mkIdentifier $1 }
+                    | PATTERN { Just $ mapSnd LDP.mkPattern $1 }
                     | { Nothing }
 
 ProbeDescription :: { LDLW.Located LDP.ProbeDescription }
@@ -234,7 +234,10 @@ ReverseTopLevels :                           { [] }
 
 {
 
-asProbe = maybe mempty snd
+asProbe = maybe LDP.mkFreePattern snd
+
+mapSnd :: (b -> c) -> (a, b) -> (a, c)
+mapSnd f (a, b) = (a, f b)
 
 firstToken :: Maybe (LDLW.Lexeme DT.Token) -> LDLW.Lexeme DT.Token -> LDLW.Lexeme DT.Token
 firstToken mt t = fromMaybe t mt
@@ -331,6 +334,7 @@ matchBuiltinVar :: T.Text -> Maybe DS.Builtin
 matchBuiltinVar t = case T.unpack t of
   "timestamp" -> Just DS.Timestamp
   "ucaller" -> Just DS.UCaller
+  "arg0" -> Just (DS.Arg (DS.argIndex 0))
   _ -> Nothing
 
 -- Identifier to the variable

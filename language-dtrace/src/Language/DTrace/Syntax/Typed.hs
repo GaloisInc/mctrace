@@ -9,6 +9,7 @@ module Language.DTrace.Syntax.Typed (
   , FloatType
   , SinglePrec
   , DoublePrec
+  , ArgIndex
   , Builtin(..)
   , BVType
   , BoolType
@@ -21,6 +22,8 @@ module Language.DTrace.Syntax.Typed (
   , LocalVariable(..)
   , localVarRepr
   , GlobalVariable(..)
+  , argIndex
+  , fromArgIndex
   , globalVarName
   , globalVarRepr
   , Expr(..)
@@ -45,7 +48,7 @@ import           Numeric.Natural ( Natural )
 
 import qualified Language.DTrace.ProbeDescription as LDP
 import qualified Language.DTrace.Token as DT
-import           Language.DTrace.Syntax.Untyped ( Builtin(..) )
+import           Language.DTrace.Syntax.Untyped ( ArgIndex, Builtin(..), argIndex, fromArgIndex )
 
 data FloatPrecision where
   SinglePrec :: FloatPrecision

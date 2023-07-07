@@ -5,6 +5,7 @@ dev_setup.log
 cabal.project
 cabal.project.freeze
 .*.swp
+.*.swo
 musl-gcc
 musl-gcc-arm
 coreutils

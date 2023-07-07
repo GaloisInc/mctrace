@@ -9,5 +9,4 @@ cd $HERE
 
 # Build mctrace itself
 cd $HERE
-cabal configure pkg:mctrace --enable-tests
 cabal build :pkg:mctrace --enable-tests

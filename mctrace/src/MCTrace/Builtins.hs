@@ -17,6 +17,7 @@ import qualified MCTrace.RuntimeAPI as RT
 
 data BuiltinVarCompilerArgs =
   BuiltinVarCompilerArgs { supportFunctions :: IR.Operand
+                         , arg0Value :: IR.Operand
                          , uCallerArg :: IR.Operand
                          , extraArg :: Maybe IR.Operand
                          }
@@ -34,6 +35,7 @@ type BuiltinVarCompilerMap = Map.Map ST.Builtin BuiltinVarCompiler
 builtinVarCompilers :: Map.Map ST.Builtin BuiltinVarCompiler
 builtinVarCompilers = Map.fromList [ (ST.Timestamp, timestampBuiltinCompiler)
                                    , (ST.UCaller, uCallerBuiltinCompiler)
+                                   , (ST.Arg (ST.argIndex 0), arg0BuiltinCompiler)
                                    ]
 
 
@@ -51,6 +53,18 @@ timestampBuiltinCompiler = BuiltinVarCompiler { compile = compiler
         IRB.call castedFn []
     timestampFnIndex = fromIntegral $ RT.probeSupportFunctionIndexMap Map.! RT.Timestamp
     timestampFnType = IRT.FunctionType IRT.i64 [] False
+
+arg0BuiltinCompiler :: BuiltinVarCompiler
+arg0BuiltinCompiler = BuiltinVarCompiler { compile = compiler
+                                         , argType = Nothing
+                                         , requireRewrite = False
+                                         }
+  where
+    compiler :: (IRB.MonadModuleBuilder m, IRB.MonadIRBuilder m) => BuiltinVarCompilerArgs -> m IR.Operand
+    compiler BuiltinVarCompilerArgs { arg0Value = oper } = do
+      -- FIXME: Currently we fix the size of arg0 to be 32-bits since we dont support platform-specific sizes
+      --        for built-in variables
+      IRB.bitcast oper (IRT.IntegerType 32)
 
 uCallerBuiltinCompiler :: BuiltinVarCompiler
 uCallerBuiltinCompiler = BuiltinVarCompiler { compile = compiler

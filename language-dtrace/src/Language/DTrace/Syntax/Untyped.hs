@@ -5,12 +5,15 @@
 module Language.DTrace.Syntax.Untyped (
     Type(..)
   , App(..)
+  , ArgIndex
   , Builtin(..)
   , Expr(..)
   , Stmt(..)
   , Probe(..)
   , TopLevel(..)
   , traverseExpr
+  , argIndex
+  , fromArgIndex
   ) where
 
 import qualified Data.Foldable as F
@@ -18,7 +21,7 @@ import qualified Data.List.NonEmpty as DLN
 import qualified Data.Text as T
 import qualified Data.Traversable as DT
 import           Numeric.Natural ( Natural )
-import qualified Prettyprinter as PP
+import           Text.Printf ( printf )
 
 import           Language.DTrace.LexerWrapper ( Located(..) )
 import qualified Language.DTrace.ProbeDescription as LDP
@@ -95,8 +98,19 @@ deriving instance (Show f) => Show (App f)
 deriving instance F.Foldable App
 deriving instance Functor App
 
+newtype ArgIndex = ArgIndex Int
+  deriving (Eq, Ord, Show)
+
+argIndex :: Int -> ArgIndex
+argIndex i | i == 0    = ArgIndex i
+           | otherwise = error (printf "Unsupported argument arg%d" i)
+
+fromArgIndex :: ArgIndex -> Int
+fromArgIndex (ArgIndex i) = i
+
 data Builtin = Timestamp
              | UCaller
+             | Arg ArgIndex
   deriving (Eq, Ord, Show)  
 
 newtype Expr = Expr { exprApp :: App (Located Expr) }
