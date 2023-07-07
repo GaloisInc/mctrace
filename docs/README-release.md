@@ -85,7 +85,7 @@ This document is provided with a self-contained version of MCTrace as a
 Docker image. To load and run the image, run the following commands:
 
 ```
-docker image load -i mctrace.tar
+docker image load -i mctrace.tar.gz
 docker run -it -w /mctrace-test mctrace
 ```
 
