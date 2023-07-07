@@ -64,12 +64,18 @@ limitations:
  - The binaries run in Linux userspace for their respective
    architectures. Future work will involve supporting "bare-metal"
    PowerPC programs.
- - The only DTrace built-in variables currently supported are `timestamp`
-   and `ucaller`. MCTrace also supports an explicit `send` action of the form:
+ - Currently, MCTrace support the following built-ins: `timestamp`, `ucaller`
+   and `arg0`. MCTrace also supports an explicit `send` action of the form:
    `send(<numeric channel id>)`; invoking `send` will result in an invocation
    of the `platform_send` function in the Platform API with that channel id and
-   the global data store. Future work will include support for the `arg0`
-   variable and the `copy` subroutine.
+   the global data store. It also supports a `copyint32(<address>)` routine
+   that returns the 32-bit value from the specified location.
+
+   *Limitations*: in the current implementation, `arg0` always returns a 32-bit value
+   (on both PowerPC and x86-64 platforms). Similarly, `copyint32` takes a 32-bit address
+   as its input on both platforms (and returns a 32-bit value). As a result, these
+   work best on the PowerPC 32-bit platform. A future version will update these to
+   work better on the x86-64 platform.
  - Platform API implementations are subject to the following
    restrictions:
    - Functions in the Platform API implementation must be self-contained
@@ -216,6 +222,7 @@ This produces output similar to the following:
     | `examples/full/alloc-dealloc-fread-fwrite-PPC` <br> `examples/full/alloc-dealloc-fread-fwrite-X86` | `examples/eval/fopen-calloc-fclose-probe.d` |
     | `examples/full/slow-read-write-PPC` <br> `examples/full/slow-read-write-X86`                       | `examples/eval/write-timing-probe.d`        |
     | `examples/full/read-write-syscall-PPC` <br> `examples/full/read-write-syscall-X86`                 | `examples/eval/graph-probe.d`               |
+    | `examples/full/array-sum-PPC`                                                                      | `examples/eval/copy-probe.d`                |
     | `examples/binaries/PPC/cat` <br> `examples/binaries/X86/cat`                                       | `examples/eval/cat-probe.d`                 |
     | `examples/binaries/PPC/sha256sum` <br> `examples/binaries/X86/sha256sum`                           | `examples/eval/sha256sum-probe.d`           |
 
