@@ -4,7 +4,9 @@ ARCH ?= X86
 PROGRAMS = read-syscall-$(ARCH) \
 	   read-write-syscall-$(ARCH) \
 	   slow-read-write-$(ARCH) \
-	   alloc-dealloc-fread-fwrite-$(ARCH)
+	   alloc-dealloc-fread-fwrite-$(ARCH) \
+	   array-sum-$(ARCH)
+
 
 ifeq ($(DOCKER),1)
     # In Docker, mctrace is in the path (See Dockerfile)
@@ -42,6 +44,9 @@ slow-read-write-$(ARCH): slow-read-write.c
 	
 alloc-dealloc-fread-fwrite-$(ARCH): alloc-dealloc-fread-fwrite.c
 	$(CC) -static alloc-dealloc-fread-fwrite.c -o alloc-dealloc-fread-fwrite-$(ARCH)
+	
+array-sum-$(ARCH): array-sum.c
+	$(CC) -static array-sum.c -o array-sum-$(ARCH)
 
 ######################################################################
 # Basic testing of instrumenting each program with various probes
@@ -81,6 +86,8 @@ instrument_tests:
 	$(call do_instrument,../eval/arg0-probe.d,read-syscall,6)
 	$(call do_instrument,../eval/arg0-probe.d,read-write-syscall,6)
 	$(call do_instrument,../eval/arg0-probe.d,slow-read-write,6)
+
+	$(call do_instrument,../eval/copy-probe.d,array-sum,7)
 
 ######################################################################
 # Additional testing with prebuilt binaries and associated probes.
