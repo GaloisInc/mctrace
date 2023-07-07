@@ -1,6 +1,7 @@
 long elapsed;
 long ts;
 long prog_cntr;
+int arg;
 
 ::fopen:entry, ::fclose:entry, ::calloc:entry
 {
@@ -12,4 +13,5 @@ long prog_cntr;
 {
     elapsed = timestamp - ts;
     prog_cntr = ucaller;
+    send(0xff);
 }
