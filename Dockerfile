@@ -49,6 +49,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV SOURCE_MCTRACE_ROOT=/root/mctrace
 ENV TARGET_MCTRACE_BIN=/mctrace-bin
 ENV TARGET_MCTRACE_ROOT=/mctrace-test
+ENV TARGET_MCTRACE_LIB=${TARGET_MCTRACE_ROOT}/examples/library
 
 # Install packages
 RUN \
