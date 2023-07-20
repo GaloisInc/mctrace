@@ -108,11 +108,11 @@ Local Build Instructions
 The development environment setup and build processes are automated. The
 automation supports Ubuntu 20.04:
 
-#+BEGIN_SRC
+```
 ./dev_setup.sh
 ./build.sh
 . env.sh
-#+END_SRC
+```
 
 The first step sets up the development environment and builds and
 installs needed tools. The second step builds the project artifacts. The
