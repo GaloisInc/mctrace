@@ -43,6 +43,27 @@ can be brought into the `PATH` for easier access with:
 . env.sh
 ```
 
+To build the example test programs for `x86_64` and instrument them
+using various testing probes, run:
+
+```
+make -C mctrace/tests/full
+```
+
+To do the same for PowerPC, run:
+
+```
+make -C mctrace/tests/full ARCH=PPC
+```
+
+The `mctrace` tool can be run manually by running:
+
+```
+cabal run mctrace <args>
+```
+
+For more details on using the `mctrace` tool, see `MCTRACE.md`.
+
 Release Build Instructions
 --------------------------
 
@@ -57,49 +78,6 @@ cd release
 This will build a self-contained image that contains MCTrace, its
 dependencies, associated tools, and examples. For information on using
 the release image, please see `release/README.md`.
-
-Testing the Tools
------------------
-
-To test the tools, first build a test binary:
-
-```
-cd mctrace/tests/full/ && make
-```
-
-An example probe is available in =mctrace/test/eval=. To instrument this
-binary with the probe, from the same directory, execute:
-
-```
-mctrace instrument \
-    --binary=read-syscall --output=/tmp/read-syscall.instrumented \
-    --var-mapping=/tmp/read-syscall.mapping.json --persistence-file=/tmp/telemetry.bin \
-    --script=../eval/single-add-probe.d
-```
-
-This produces the instrumented binary =/tmp/read-syscall.instrumented=
-as well as a mapping file =/tmp/read-syscall.mapping.json=, which
-we require later to extract telemetry information. Then run the
-instrumented binary:
-
-```
-/tmp/read-syscall.instrumented
-```
-
-This creates the file =/tmp/telemetry.bin= that contains the telemetry
-information in binary format. To interpret these results, execute:
-
-```
-mctrace extract \
-    --var-mapping=/tmp/read-syscall.mapping.json \
-    --persistence-file=/tmp/telemetry.bin
-```
-
-This should display the set of variables defined in the probes and their
-values.
-
-Other binaries can be instrumented, run and interpreted in a similar
-fashion.
 
 Acknowledgements
 ================
