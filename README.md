@@ -13,17 +13,17 @@ releases.
 Building MCTrace
 ================
 
-MCTrace binaries can be built in two ways: either locally, given a
-Haskell build environment and an LLVM installation, or via a Dockerfile.
-Instructions for both are in the following sections.
+MCTrace can be built for one of two purposes: either for local
+development in a Haskell build environment, or for release as a Docker
+image. Instructions for each method are detailed below.
 
-Build Instructions
-------------------
+Development Build Instructions
+------------------------------
 
 The development environment setup and build processes are automated.
-The automation requires Ubuntu 20.04 and LLVM 12. To perform a one-time
-setup of the development environment including the installation of LLVM
-and other required tools, run the development setup script:
+The build process requires Ubuntu 20.04. To perform a one-time setup of
+the development environment including the installation of LLVM, cross
+compilers, and other required tools, run the development setup script:
 
 ```
 ./dev_setup.sh
@@ -37,34 +37,26 @@ installed, MCTrace can be built with the build script:
 ```
 
 After the build has completed, various cross compilers and other tools
-can be brought into the PATH for easier access with:
+can be brought into the `PATH` for easier access with:
 
 ```
 . env.sh
 ```
 
-Docker-based Build Instructions and Usage
------------------------------------------
+Release Build Instructions
+--------------------------
 
-To build the docker image, execute the following from the root of the
-repository:
+To build the release Docker image, execute the following from the root
+of the repository:
 
 ```
-docker build -t mctrace - < Dockerfile
+cd release
+./build.sh
 ```
 
 This will build a self-contained image that contains MCTrace, its
-dependencies and associated tools. To run the container, execute
-something like:
-
-```
-docker run -it -v $PWD:/mctrace -w /mctrace mctrace
-```
-
-Note that this mounts the current directory as `/mctrace` in the
-container and leaves you in a bash shell in that directory. The
-`mctrace` binary as well as `musl-gcc` (used to build `musl`-based
-statically-linked binaries) should be accessible from this shell.
+dependencies, associated tools, and examples. For information on using
+the release image, please see `release/README.md`.
 
 Testing the Tools
 -----------------
