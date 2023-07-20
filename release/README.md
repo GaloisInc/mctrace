@@ -1,90 +1,3 @@
-Introduction
-============
-
-The MCTrace tool enables instrumentation of binaries in order to
-collect fine-grained tracing information. It provides functionality
-similar to what is provided by DTrace but does not require native
-operating system support. The input language of MCTrace is the DTrace
-language, but it currently supports a subset of the probes, actions,
-and language features supported by DTrace.
-
-How MCTrace Works
-=================
-
-Using MCTrace requires:
-
-* A PowerPC or `x86_64` ELF binary to instrument,
-* An object file implementing the MCTrace Platform API (see below), and
-* A Dtrace probe script containing the probes that will be used to
-  modify the provided ELF binary.
-
-MCTrace works by producing a modified version of its input binary that
-calls Dtrace probes at the points described in the Dtrace probe script.
-
-Some supported Dtrace language features need access to platform-specific
-functionality (such as memory allocation and data exfiltration).
-The MCTrace user provides that functionality to the tool in the
-form of a compiled object file. The set of platform-specific
-functions that MCTrace expects in the object file are called the
-"Platform API." A complete implementation of the Platform API must
-provide implementations of all of the functions the in header file
-`examples/library/include/platform_api.h` provided in this distribution.
-Once compiled, the platform API implementation must be provided to the
-`mctrace` as the `--library` argument when invoking the `mctrace` tool.
-
-For demonstration purposes, simple platform API implementations
-for PowerPC and `x86_64` Linux user space are available at
-`examples/library/PPC` and `examples/library/X86`, respectively, in both
-source and object code forms.
-
-Supported Dtrace API
---------------------
-
-MCTrace uses the Dtrace language as the means for expressing how it
-should modify its input binary. While MCTrace does not implement all of
-the Dtrace language, some core Dtrace language features are supported:
-
-* Probe pattern matching
-* Probe descriptions
-* Global variables
-* `timestamp`, `ucaller` and `arg0` builtins
-
-Example Dtrace probe scripts demonstrating MCTrace's features can be
-found in `examples/eval/` in this distribution.
-
-Features and Limitations of This Demonstration
-----------------------------------------------
-
-In addition to our own example programs, this demonstration includes
-a small collection of statically-linked PowerPC and `x86_64` binaries
-from the `coreutils` distribution and a selection of probes that can be
-used to instrument them. The current demonstration has the following
-limitations:
-
- - This release supports only statically-linked input binaries.
- - The binaries in the `examples/` directory run in Linux userspace
-   for their respective architectures. Specific releases may include
-   additional binaries for other platforms.
- - In addition to the core DTrace language features listed above,
-   MCTrace also supports some additional DTrace constructs specific to
-   MCTrace:
-   - A `send` action of the form: `send(<numeric channel ID>)`. Invoking
-     `send` will result in an invocation of the `platform_send` function
-     in the Platform API with that channel ID and the global data store.
-     See the MCTrace Telemetry section below for details.
-   - A `copyint32(<address>)` subroutine that returns the 32-bit value
-     from the specified location.
- - In the current implementation, `arg0` always returns a 32-bit value
-   (on both PowerPC and `x86-64` platforms). Similarly, `copyint32`
-   takes a 32-bit address as its input on both platforms (and returns
-   a 32-bit value). As a result, these work best on the PowerPC 32-bit
-   platform since the argument and return value width match the
-   architecture.
- - Platform API implementations are subject to the following
-   restrictions:
-   - Functions in the Platform API implementation must be self-contained
-     and cannot call other functions even in the same object file.
-   - Functions cannot make use of global variables.
 
 Running the Demonstration
 =========================
@@ -105,9 +18,6 @@ sections.
 The MCTrace Docker Image
 ------------------------
 
-The current version of MCTrace is capable of instrumenting PowerPC and
-`x86_64` binaries.
-
 The docker image provided with this README contains PowerPC and `x86_64`
 test programs and example probes that can be used to exercise MCTrace.
 Important folders are as follows:
@@ -121,30 +31,11 @@ Important folders are as follows:
  * `examples/binaries` contains binaries from a statically compiled
    version of GNU coreutils for use with `mctrace`.
 
-Using MCTrace
--------------
+Using MCTrace in this demonstration
+-----------------------------------
 
-MCTrace is run as follows:
-
-```
-mctrace instrument
-    --binary=<path to input ELF binary>
-    --output=<output path to modified ELF binary>
-    --library=<platform API implementation object file>
-    --var-mapping=<output variable mapping JSON file path>
-    --script=<input file path to Dtrace probe script>
-```
-
-For example,
-
-```
-mctrace instrument
-    --binary=my_program
-    --output=my_program.instrumented
-    --library=my_platform.o
-    --var-mapping=mapping.json
-    --script=my_dtrace_probes.d
-```
+For an introduction to running the `mctrace` tool, see `MCTRACE.md`
+included in the Docker image.
 
 For example, the `read-write-syscall-PPC.4.inst` binary in this
 distribution is the instrumented version of the PowerPC binary

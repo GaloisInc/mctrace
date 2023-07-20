@@ -79,6 +79,7 @@ COPY --from=base ${SOURCE_MCTRACE_ROOT}/cp10_demo /${TARGET_MCTRACE_ROOT}/
 
 # Copy documentation
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/release/README.md /${TARGET_MCTRACE_ROOT}/
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/MCTRACE.md /${TARGET_MCTRACE_ROOT}/
 
 # Copy extractor script
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/scripts/extractor.py ${TARGET_MCTRACE_BIN}
