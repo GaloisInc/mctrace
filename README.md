@@ -3,11 +3,11 @@ Introduction
 ============
 
 This repository contains the source code and build system for the
-MCTrace binary instrumentation tool. The MCTrace tool enables users to
-modify binaries, inserting instrumentation into them in order to collect
-fine-grained tracing information. For information on the MCTrace
-tool's design and usage, place see MCTRACE.md. This document covers
-instructions for building MCTrace from source for development or
+MCTrace binary instrumentation tool. The MCTrace tool enables users
+to modify binaries, inserting instrumentation into them in order to
+collect fine-grained tracing information. For information on the
+MCTrace tool's design and usage, place see `MCTRACE.md`. This document
+covers instructions for building MCTrace from source for development or
 releases.
 
 Building MCTrace
