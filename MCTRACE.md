@@ -2,13 +2,11 @@
 Introduction
 ============
 
-The MCTrace tool enables users to insert instrumentation into native
-binaries in order to collect fine-grained tracing information. It is
-analogous to DTrace, but does not require any operating support (or even
-an operating system). In fact, the input format of MCTrace is exactly
-the same as DTrace. It does not support all of the probes supported by
-DTrace, as some are only possible with operating system support, but it
-supports any probes from DTrace that can be accomplished in userspace.
+The MCTrace tool enables users to insert instrumentation into binaries
+in order to collect fine-grained tracing information. MCTrace functions
+similarly to DTrace but does not require any operating support (or even
+an operating system). The input format of MCTrace is a subset of the
+DTrace probe script language.
 
 Concept of Operations
 =====================
