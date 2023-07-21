@@ -66,16 +66,13 @@ at the start and end of the `write` function and computes timing
 information for the call. Note that the instrumentation command produces
 a significant amount of DEBUG logs, that can be ignored at the moment.
 
-As mentioned above, an explicit `send` action will be implemented in
-a future version to allow probes to have more control over when data
-should be exfiltrated and this implicit call to `send` will be retired.
-The current test implementation of `send` pushes the set of telemetry
-variables, in a compact binary format, to the standard error (a more
-canonical implementation on an embedded device might push data to a
-bus). A script `extractor.py` has been included with the image to help
-interpret this data.
+When probes call the DTrace `send` action, the current test
+implementation of `send` pushes the set of telemetry variables, in a
+compact binary format, to the standard error. A script `extractor.py`
+has been included with the image to help interpret this data.
 
-To invoke the instrumented binary and extract data:
+To invoke the instrumented binary and use the `extractor.py` script to
+decode any emitted telemetry:
 
     /mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1 >/dev/null | \
         extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json --extract --big-endian
@@ -96,20 +93,21 @@ This produces output similar to the following:
   writes `send()` data to `stderr` and we need that data to be piped to
   the extractor script.
 
-- When extracting telemetry data from instrumented PowerPC binaries, the flag
-  `--big-endian` must be passed to the extractor script as in the command above.
-  The flag should be elided when working with `x86_64` binaries.
+- When extracting telemetry data from instrumented PowerPC binaries, the
+  flag `--big-endian` must be passed to the extractor script as in the
+  command above. The flag should be elided when working with `x86_64`
+  binaries.
 
 - The `extractor.py` script offers a few other conveniences when
   extracting data from instrumented programs; for example it can produce
   columnar outputs and filter columns. See `extractor.py --help` for
   details on these options.
 
-- The table below lists a few other binaries for PowerPC and `x86_64` as
-  well some example probes that can be used to instrument each binary.
-  Note that many other combinations of example programs and probes
-  can work together; the full list of combinations can be found in
-  `examples/full/Makefile`.
+- The table below lists other binaries for PowerPC and `x86_64` included
+  in the Docker image as well some example probes that can be used to
+  instrument each binary. Note that many other combinations of example
+  programs and probes can work together; the full list of combinations
+  can be found in `examples/full/Makefile`.
 
     | Binaries                                                                                           | Probe                                       |
     | ---------------------------------------------------------------------------------------------------| ------------------------------------------- |
