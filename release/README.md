@@ -16,8 +16,8 @@ binaries. We discuss the details of the `mctrace` tool in the following
 sections. All relative paths mentioned in this document are relative to
 `/mctrace-test`.
 
-The MCTrace Docker Image
-------------------------
+Docker Image Contents
+---------------------
 
 The docker image provided with this README contains PowerPC and `x86_64`
 test programs and example probes that can be used to exercise MCTrace.
@@ -35,13 +35,15 @@ Important folders are as follows:
 Using MCTrace in this demonstration
 -----------------------------------
 
-For an introduction to running the `mctrace` tool, see `MCTRACE.md`
-included in the Docker image.
+The `mctrace` tool is in the shell `PATH` when running within Docker,
+so no special steps are needed to be able to invoke the executable.
+For instructions on how to run the `mctrace` tool with the appropriate
+command-line arguments, see `MCTRACE.md` included in the Docker image.
 
-For example, the `read-write-syscall-PPC.4.inst` binary in this
+As an example, the `read-write-syscall-PPC.4.inst` binary in this
 distribution is the instrumented version of the PowerPC binary
-`read-write-syscall-PPC` and was instrumented with the following `mctrace`
-command:
+`read-write-syscall-PPC` and was instrumented with the following
+`mctrace` command:
 
 ```
 mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
