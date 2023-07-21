@@ -2,7 +2,7 @@
 Running the Demonstration
 =========================
 
-This document is provided with a self-contained version of MCTrace as a
+This document is provided with a self-contained build of MCTrace as a
 Docker image. To load and run the image, run the following commands:
 
 ```
@@ -13,7 +13,8 @@ docker run -it -w /mctrace-test mctrace
 This will drop you into a bash shell within the Docker container in the
 directory `/mctrace-test` where you can use `mctrace` to instrument
 binaries. We discuss the details of the `mctrace` tool in the following
-sections.
+sections. All relative paths mentioned in this document are relative to
+`/mctrace-test`.
 
 The MCTrace Docker Image
 ------------------------
