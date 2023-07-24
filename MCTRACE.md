@@ -17,7 +17,7 @@ purposes or to collect telemetry), the steps to use MCTrace are as
 follows:
 
 1. Write a DTrace script that collects the desired data. (See
-   `DTrace.md` for details about supported DTrace language features.)
+   `DTRACE.md` for details about supported DTrace language features.)
 2. Run the `mctrace` tool in `instrument` mode to insert probes into the
    binary as directed by the script.
 3. Run the instrumented binary.
@@ -34,18 +34,18 @@ Using MCTrace requires:
 
 * A PowerPC or `x86_64` ELF binary to instrument,
 * An object file implementing the MCTrace Platform API (see below), and
-* A Dtrace probe script containing the probes that will be used to
+* A DTrace probe script containing the probes that will be used to
   modify the provided ELF binary.
 
 MCTrace works by producing a modified version of its input binary that
-calls Dtrace probes at the points described in the Dtrace probe script.
+calls Dtrace probes at the points described in the DTrace probe script.
 MCTrace compiles DTrace probe scripts into native code using a compiler
 backend (e.g., LLLVM). It then uses binary rewriting to insert the
 generated probes into the binary. Through static analysis, it identifies
 program locations corresponding to DTrace probe providers; at each
 provider site, it inserts calls to the compiled probes.
 
-Some supported Dtrace language features need access to platform-specific
+Some supported DTrace language features need access to platform-specific
 functionality such as memory allocation. Since the DTrace code
 will run within the context of the modified binary rather than an
 operating system kernel, MCTrace requires some additional code to
@@ -138,21 +138,6 @@ network connection, writing to a local bus, etc.
 
 For full details of the `mctrace` tool's command line usage, run
 `mctrace instrument --help`.
-
-Supported Dtrace API
-====================
-
-MCTrace uses the Dtrace language as the means for expressing how it
-should modify its input binary. While MCTrace does not implement all of
-the Dtrace language, some core Dtrace language features are supported:
-
-* Probe pattern matching
-* Probe descriptions
-* Global variables
-* `timestamp`, `ucaller` and `arg0` builtins
-
-Example Dtrace probe scripts demonstrating MCTrace's features can be
-found in `mctrace/tests/eval/` in the MCTrace GitHub repository.
 
 Current Limitations of MCTrace
 ==============================
