@@ -28,3 +28,13 @@ supported:
 
 Example DTrace probe scripts demonstrating MCTrace's features can be
 found in `mctrace/tests/eval/` in the MCTrace GitHub repository.
+
+MCTrace-specific DTrace extensions
+----------------------------------
+
+In addition to the core language features listed above, MCTrace's
+support for DTrace includes the following additional features:
+
+* A `send(channel_id)` action for telemetry exfiltration (see
+  `MCTRACE.md` for details)
+* A `copyint32(addr)` subroutine for copying 32-bit values from memory
