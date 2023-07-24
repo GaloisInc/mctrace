@@ -154,8 +154,8 @@ the Dtrace language, some core Dtrace language features are supported:
 Example Dtrace probe scripts demonstrating MCTrace's features can be
 found in `mctrace/tests/eval/` in the MCTrace GitHub repository.
 
-Features and Limitations of MCTrace
-===================================
+Current Limitations of MCTrace
+==============================
 
 MCTrace has the following limitations:
 
