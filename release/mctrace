@@ -3,6 +3,8 @@
 # Run the MCTrace command line tool via the tool docker image with appropriate
 # mount volumes
 
+set -e
+
 MCTRACE_TOOL_DOCKER_IMAGE=mctrace-tool
 
 # Find the root directory of the repo. This assumes that this script is in
