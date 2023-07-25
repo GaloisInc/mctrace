@@ -165,16 +165,3 @@ MCTrace has the following limitations:
    - Functions in the Platform API implementation must be self-contained
      and cannot call other functions even in the same object file.
    - Functions cannot make use of global variables.
-
-Acknowledgements
-================
-
-This material is based upon work supported by the United States Air
-Force AFRL/SBRK under Contract No. FA8649-21-P-0293, and by the Defense
-Advanced Research Projects Agency (DARPA) and Naval Information Warfare
-Center Pacific (NIWC Pacific) under Contract Number N66001-20-C-4027.
-Any opinions, findings and conclusions or recommendations expressed in
-this material are those of the author(s) and do not necessarily reflect
-the views of the DARPA & NIWC Pacific.
-
-(c) 2022-2023 Galois, Inc.
