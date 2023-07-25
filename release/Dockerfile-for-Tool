@@ -1,5 +1,6 @@
-# NOTE: This file relies on the image built by the standard Dockerfile under release
-#  It is assumed that this image is called 'mctrace'
+# NOTE: This file relies on the image built by the standard Dockerfile
+# under release/ and that its name is 'mctrace'. Use 'build.sh' to build
+# both the source image and this one.
 FROM mctrace AS source
 
 # The final image will be based on ubuntu
