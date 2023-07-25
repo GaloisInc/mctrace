@@ -75,9 +75,10 @@ cd release
 ./build.sh
 ```
 
-This will build a self-contained image that contains MCTrace, its
-dependencies, associated tools, and examples. For information on using
-the release image, please see `release/README.md`.
+This will build two docker images: 
+- A self-contained image that contains MCTrace, its dependencies, associated tools, and examples. For information on using former image, please see `release/README.md`.
+
+- A minimal image containing just MCTrace and its dependencies. A helper script, `release/mctrace` has been provided to run the command in a container. Note that paths passed to this script should be relative to the root of the repository and paths outside of the repository will not accessible.
 
 Acknowledgements
 ================
