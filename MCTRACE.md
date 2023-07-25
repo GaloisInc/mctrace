@@ -2,27 +2,30 @@
 Introduction
 ============
 
-The MCTrace tool enables users to insert instrumentation into native
-binaries in order to collect fine-grained tracing information. It is
-analogous to DTrace, but does not require any operating support (or even
-an operating system). In fact, the input format of MCTrace is exactly
-the same as DTrace. It does not support all of the probes supported by
-DTrace, as some are only possible with operating system support, but it
-supports any probes from DTrace that can be accomplished in userspace.
+The MCTrace tool enables users to insert instrumentation into binaries
+in order to collect fine-grained tracing information. MCTrace functions
+similarly to DTrace but does not require any operating support (or even
+an operating system). The input format of MCTrace is a subset of the
+DTrace probe script language. Prior knowledge of DTrace concepts and
+terminology is assumed in this document.
 
 Concept of Operations
 =====================
 
-Once the user has identified a program that they would like to
-instrument (e.g., for debugging purposes or to collect telemetry), they
-would:
+After identifying a program to be instrumented (e.g., for debugging
+purposes or to collect telemetry), the steps to use MCTrace are as
+follows:
 
-1. Write a DTrace script that collects the desired data
+1. Write a DTrace script that collects the desired data. (See
+   `DTRACE.md` for details about supported DTrace language features.)
 2. Run the `mctrace` tool in `instrument` mode to insert probes into the
-   binary as directed by the script
-3. Run the instrumented binary
-4. Run the `mctrace` tool in `extract` mode to interpret the resulting
-   telemetry, converting it to JSON for further analysis
+   binary as directed by the script.
+3. Run the instrumented binary.
+4. Collect telemetry data emitted by the instrumented binary and use
+   `mctrace` and associated scripts to decode it.
+
+The following sections provide more details about the steps listed
+above.
 
 How MCTrace Works
 =================
@@ -31,120 +34,113 @@ Using MCTrace requires:
 
 * A PowerPC or `x86_64` ELF binary to instrument,
 * An object file implementing the MCTrace Platform API (see below), and
-* A Dtrace probe script containing the probes that will be used to
+* A DTrace probe script containing the probes that will be used to
   modify the provided ELF binary.
 
 MCTrace works by producing a modified version of its input binary that
-calls Dtrace probes at the points described in the Dtrace probe script.
-
-Some supported Dtrace language features need access to platform-specific
-functionality (such as memory allocation and data exfiltration).
-The MCTrace user provides that functionality to the tool in the
-form of a compiled object file. The set of platform-specific
-functions that MCTrace expects in the object file are called the
-"Platform API." A complete implementation of the Platform API must
-provide implementations of all of the functions the in header file
-`examples/library/include/platform_api.h` provided in this distribution.
-Once compiled, the platform API implementation must be provided to the
-`mctrace` as the `--library` argument when invoking the `mctrace` tool.
-
-For demonstration purposes, simple platform API implementations
-for PowerPC and `x86_64` Linux user space are available at
-`examples/library/PPC` and `examples/library/X86`, respectively, in both
-source and object code forms.
-
-Example
--------
-
-In the following example, the user wants to instrument `foo.exe` to
-collect telemetry. Assume that they want to count the number of times
-the program reads from a file. Their probe script would look like:
-
-```
-int read_calls;
-::read:entry {
-  read_calls = read_calls + 1;
-}
-```
-
-This probe increments the `read_calls` variable every time the `read`
-system call is entered. Note that all probe variables are zero
-initialized. The user would invoke `mctrace` as follows:
-
-```
-# Instrument the binary
-$ mctrace instrument --binary=foo.exe \
-                     --output=foo.instrumented.exe \
-                     --var-mapping=foo.mapping.json \
-                     --persistence-file=/tmp/foo.telemetry.bin \
-                     --script=probes.d
-
-# Run the binary
-$ ./foo.instrumented.exe
-
-# Interpret the collected telemetry
-$ mctrace extract --var-mapping=foo.mapping.json \
-                  --persistence-file=/tmp/foo.telemetry.bin
-
-> {"read_calls": 1}
-```
-
-- The `foo.exe` binary and the `probes.d` probe script are provided to
-  `mctrace` as inputs.
-- The `output` option tells `mctrace` the name of the binary to produce
-- The `persistence-file` option tells `mctrace` where the instrumented
-  binary should save its collected telemetry when it runs (note that any
-  existing files at that location will be overwritten)
-- The `var-mapping` option tells `mctrace` where to record metadata that
-  allows it to later interpret the collected telemetry
-
-The `extract` mode of the tool uses the mapping file to interpret the
-persisted telemetry. In this example, the program only called `read`
-once.
-
-Design
-======
-
-MCTrace uses DTrace scripts as input. The DTrace scripting language is
-a simple imperative language inspired by C that is based on the concept
-of *probes*. Users define probes, which are sequences of code that run
-at instrumentation points. The set of instrumentation points are known
-as *probe providers*; different operating systems (or in the case of
-MCTrace, probe compilers) support different providers.
-
+calls Dtrace probes at the points described in the DTrace probe script.
 MCTrace compiles DTrace probe scripts into native code using a compiler
 backend (e.g., LLLVM). It then uses binary rewriting to insert the
 generated probes into the binary. Through static analysis, it identifies
 program locations corresponding to DTrace probe providers; at each
 provider site, it inserts calls to the compiled probes.
 
-The storage backend for telemetry data will ultimately be configurable
-to support a wide range of systems. At the moment, telemetry is stored
-in a memory mapped region backed by a file on disk. The region is
-allocated at program startup. Each probe modifies values in that region.
-When the program exits, the telemetry information persists in the file.
-Users can then collect this telemetry information for offline analysis.
-When instrumenting a binary with a set of probes, `mctrace` can emit a
-mapping file that describes the location of each probe variable in the
-collected telemetry.
+Some supported DTrace language features need access to platform-specific
+functionality such as memory allocation. Since the DTrace code
+will run within the context of the modified binary rather than an
+operating system kernel, MCTrace requires some additional code to
+provide access to such platform-specific features. The MCTrace tool
+provides the input program with access to this platform-specific
+functionality by way of an object file of compiled code called the
+Platform Implementation. The object code that implements the required
+functions must conform to a set of C function prototypes called the
+Platform API. A complete implementation of the Platform API must
+provide implementations of all of the functions the in header file
+`mctrace/tests/library/include/platform_api.h` provided in the MCTrace
+GitHub repository. Once compiled, the platform API implementation must
+be provided to the `mctrace` as the `--library` argument when invoking
+the `mctrace` tool.
 
-Supported Dtrace API
-====================
+For demonstration purposes, simple platform API implementations for
+PowerPC and `x86_64` Linux user space are available in the repository
+in `mctrace/tests/library/` and in the Docker release image in
+`examples/library/` in both source and object code forms.
 
-MCTrace uses the Dtrace language as the means for expressing how it
-should modify its input binary. While MCTrace does not implement all of
-the Dtrace language, some core Dtrace language features are supported:
+Example
+-------
 
-* Probe pattern matching
-* Probe descriptions
-* Global variables
-* `timestamp`, `ucaller` and `arg0` builtins
+The following example demonstrates how an `x86_64` binary `foo` would be
+instrumented and how its produced telemetry would be obtained. In this
+example, the user wants to count the number of times that the program
+performs a file read by measuring the number of calls to the `read`
+system call. The probe script to accomplish this is as follows:
 
-Example Dtrace probe scripts demonstrating MCTrace's features can be
-found in `examples/eval/` in this distribution.
+```
+int read_calls;
 
-Features and Limitations of MCTrace
-===================================
+::read:entry {
+  read_calls = read_calls + 1;
+  send(0);
+}
+```
+
+This probe increments the `read_calls` DTrace variable just prior to
+each call to the `read` system call. Futhermore, the complete set of
+DTrace global variables (containing only `read_calls` in this case) is
+then transmitted as telemetry according to the platform implementation
+of `send()`.
+
+Once the probes are written, `mctrace` would be invoked as follows.
+
+- The `foo` binary and the `probes.d` probe script are provided to
+  `mctrace` as inputs.
+- The `--output` option tells `mctrace` where the instrumented binary
+  should be written.
+- The `--var-mapping` option tells `mctrace` where to record metadata
+  that allows it to later decode telemetry data.
+- The `--library` option tells `mctrace` where to find the platform
+  implementation object code.
+- The `--var-mapping` option tells `mctrace` where to write its metadata
+  describing the encoding of the telemetry data stream.
+
+```
+$ mctrace instrument --binary=foo \
+                     --output=foo.instrumented \
+                     --var-mapping=foo.mapping.json \
+                     --library=mctrace/tests/library/platform_impl.o \
+                     --script=probes.d
+```
+
+The resulting binary can then be run:
+
+```
+$ ./foo.instrumented 2>telemetry.bin
+```
+
+Once the instrumented binary has finished running, the file
+`telemetry.bin` will contain the binary telemetry data corresponding
+to the value of `read_calls` after each invocation of the probe. The
+telemetry data must be decoded:
+
+```
+$ extractor.py foo.mapping.json --columns < telemetry.bin
+```
+
+The `extractor.py` script uses the telemetry mapping file to decode the
+written telemetry data.
+
+NOTE: In this example, the instrumented binary was run with a `stderr`
+redirect. This is because the `x86_64` platform implementation for
+`send()` used in this example writes the DTrace global variable
+data to `stderr`. In practice, `send()` would trigger some other
+platform-specific mode of data transmission such as sending packets on a
+network connection, writing to a local bus, etc.
+
+For full details of the `mctrace` tool's command line usage, run
+`mctrace instrument --help`.
+
+Current Limitations of MCTrace
+==============================
 
 MCTrace has the following limitations:
 
