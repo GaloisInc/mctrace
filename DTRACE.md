@@ -21,10 +21,9 @@ supported:
   * `long long`
 * Arithmetic operators `+`, `-`, and `*` supported on integer types only
 * Builtins:
-  * `arg0`
+  * `int arg0`
   * `timestamp`
-  * `ucaller` (has a 64-bit type on both `x86_64` and PowerPC
-    architectures)
+  * `long ucaller`
 
 Example DTrace probe scripts demonstrating MCTrace's features can be
 found in `mctrace/tests/eval/` in the MCTrace GitHub repository.
@@ -35,6 +34,7 @@ MCTrace-specific DTrace extensions
 In addition to the core language features listed above, MCTrace's
 support for DTrace includes the following additional features:
 
-* A `send(channel_id)` action for telemetry exfiltration (see
+* A `send(int channel_id)` action for telemetry exfiltration (see
   `MCTRACE.md` for details)
-* A `copyint32(addr)` subroutine for copying 32-bit values from memory
+* A `copyint32(int addr)` subroutine for copying 32-bit values from
+  memory
