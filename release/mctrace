@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# Run the MCTrace command line tool via the tool docker image with appropriate
+# mount volumes
+
+MCTRACE_TOOL_DOCKER_IMAGE=mctrace-tool
+
+# Find the root directory of the repo. This assumes that this script is in
+# <ROOTDIR/release> directory
+SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
+ROOTDIR="$(cd -- "$SCRIPT_PATH/.." && pwd)"
+
+# Run the mctrace command from the docker image with the root
+# directory mounted at /work and /work as the working dir
+docker run -v ${ROOTDIR}:/work -w /work ${MCTRACE_TOOL_DOCKER_IMAGE} "$@"
+
