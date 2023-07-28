@@ -145,15 +145,6 @@ Current Limitations of MCTrace
 MCTrace has the following limitations:
 
  - MCTrace supports only statically-linked input binaries.
- - In addition to the core DTrace language features listed above,
-   MCTrace also supports some additional DTrace constructs specific to
-   MCTrace:
-   - A `send` action of the form: `send(<numeric channel ID>)`. Invoking
-     `send` will result in an invocation of the `platform_send` function
-     in the Platform API with that channel ID and the global data store.
-     See the MCTrace Telemetry section below for details.
-   - A `copyint32(<address>)` subroutine that returns the 32-bit value
-     from the specified location.
  - In the current implementation, `arg0` always returns a 32-bit value
    (on both PowerPC and `x86-64` platforms). Similarly, `copyint32`
    takes a 32-bit address as its input on both platforms (and returns
