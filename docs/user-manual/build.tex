@@ -1,0 +1,84 @@
+
+\section{Building MCTrace}
+\label{sec:building-mctrace}
+
+The information in this section can also be found in the repository file
+\texttt{README.md}. 
+
+MCTrace can be built for one of two purposes: either for local
+development in a Haskell build environment, or for release as a Docker
+image. Instructions for each method are detailed below.
+
+\subsection{Development Build Instructions}
+\label{sec:devel-build-instr}
+
+The development environment setup and build processes are automated.
+The build process requires Ubuntu 20.04. To perform a one-time setup of
+the development environment including the installation of LLVM, cross
+compilers, and other required tools, run the development setup script:
+
+\begin{verbatim}
+./dev_setup.sh
+\end{verbatim}
+
+Once the development environment is set up and the required tools are
+installed, MCTrace can be built with the build script:
+
+\begin{verbatim}
+./build.sh
+\end{verbatim}
+
+After the build has completed, various cross compilers and other tools
+can be added to the \texttt{PATH} environment variable for easier access with:
+
+\begin{verbatim}
+. env.sh
+\end{verbatim}
+
+To build the example test programs for x86\_64 and instrument them
+using various testing probes, run:
+
+\begin{verbatim}
+make -C mctrace/tests/full
+\end{verbatim}
+
+To do the same for PowerPC, run:
+
+\begin{verbatim}
+make -C mctrace/tests/full ARCH=PPC
+\end{verbatim}
+
+MCTRACE can then be run manually:
+
+\begin{verbatim}
+cabal run mctrace <args>
+\end{verbatim}
+
+\subsection{Release Build Instructions}
+\label{sec:rele-build-instr}
+
+To build the stand-alone release Docker image, execute the following from the root
+of the repository:
+
+\begin{verbatim}
+cd release
+./build.sh
+\end{verbatim}
+
+This will build two docker images: 
+\begin{itemize}
+\item A self-contained image that contains MCTrace, its dependencies,
+  associated tools, and examples. For information on using this image,
+  see Section~\ref{sec:user-release}.
+
+\item A minimal image containing just MCTrace and its dependencies. A
+  helper script, \texttt{release/mctrace} has been provided to run the
+  command in a container. Note that paths passed to this script should
+  be relative to the root of the repository and paths outside of the
+  repository will not accessible. 
+\end{itemize}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "user-manual"
+%%% End:
