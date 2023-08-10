@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -10,17 +11,11 @@ module MCTrace.Arch.X86 (
   x86Rewriter
   ) where
 
-import           Control.Monad ( unless )
-import           Control.Monad.IO.Class ( liftIO )
-import qualified Control.Monad.Catch as X
-import qualified Control.Monad.Except as CME
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ElfEdit as EE
 import qualified Data.ElfEdit.Prim as EEP
-import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
-import qualified Data.List as DL
 import qualified Data.List.NonEmpty as DLN
 import qualified Data.Macaw.BinaryLoader as MBL
 import           Data.Macaw.BinaryLoader.X86 ()
@@ -28,19 +23,18 @@ import qualified Data.Macaw.CFG as MC
 import qualified Data.Macaw.Discovery.State as DMD
 import           Data.Macaw.X86.Symbolic ()
 import qualified Data.Map.Strict as Map
-import           Data.Maybe ( fromMaybe, mapMaybe )
+import           Data.Maybe ( fromMaybe )
 import qualified Data.Parameterized.NatRepr as PN
 import           Data.Parameterized.Some ( Some(..) )
 import qualified Data.Traversable as DT
-import           Data.Tuple (swap)
 import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
 
 import qualified MCTrace.Analysis as MA
+import           MCTrace.Arch.Common ( injectPlatformApiImpl )
 import qualified MCTrace.Arch.X86.Providers as MAP
 import qualified MCTrace.Arch.X86.Setup as MAS
 import qualified MCTrace.Codegen as MC
-import qualified MCTrace.Exceptions as ME
 import qualified MCTrace.RuntimeAPI as RT
 import qualified MCTrace.ProbeProvider as MP
 import qualified MCTrace.PLT as PLT
@@ -63,7 +57,7 @@ preAnalyze probeIndex library env = do
   let pointerWidth = fromIntegral (PN.natValue (MC.pointerWidth probeIndex)) `div` 8
   storePtrAddr <- R.newGlobalVar "__mctrace_probeStore" pointerWidth
 
-  supportFunAddrMap <- injectModule library RT.supportFunctionNameMap
+  supportFunAddrMap <- injectPlatformApiImpl library RT.supportFunctionNameMap
 
   let supportFunArraySize = pointerWidth * fromIntegral (length RT.probeSupportFunctions)
   probeSupportFunArrayAddr <- R.newGlobalVar "__mctrace_probeSupportFuns" supportFunArraySize
@@ -100,71 +94,6 @@ indexFunctionEntries env =
     normalSymbols = [ (fromMaybe (BSC.pack (show entryAddr)) (DMD.discoveredFunSymbol dfi), entryAddr)
                     | (entryAddr, (_blockAddrs, Some dfi)) <- Map.toList (R.biFunctions blockInfo)
                     ]
-
-injectModule
-  :: EE.ElfHeaderInfo n
-  -> Map.Map RT.SupportFunction String
-  -> R.RewriteM MA.LogEvent RX.X86_64 (Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64))
-injectModule library supportFunNames = do
-  -- Index the functions in the library
-  fnBytes <- case indexFunctions of
-    Left err -> X.throwM err
-    Right v  -> do
-      liftIO $ print $ map (\(nm, bytes) -> (nm, BSC.length bytes)) v
-      return v
-  mapM_ (liftIO . print . fst) fnBytes
-  -- Ensure that all support functions are present
-  let missingFns = missingSupportFunctions fnBytes
-  unless (null missingFns) $
-    X.throwM (ME.MissingSupportFunction (show <$> missingFns))
-  -- Inject each one individually
-  Map.fromList <$> mapM injectFn fnBytes
-  where
-    injectFn (fnid, bytes) = (fnid,) <$> R.injectFunction ("__mctrace_platform_" ++ show fnid) bytes
-    indexFunctions :: Either ME.TraceException [(RT.SupportFunction, BS.ByteString)]
-    indexFunctions = CME.runExcept $ MC.withElfClassConstraints library $ do
-      let (errs, elf) = EE.getElf library
-      unless (null errs) $ do
-        CME.throwError (ME.ELFParseError errs)
-
-      symbolTable <- case EE.elfSymtab elf of
-        [] -> CME.throwError (ME.MissingGeneratedProbeSection ".symtab")
-        [symtab] -> return symtab
-        _ -> CME.throwError (ME.MultipleGeneratedProbeSections ".symtab")
-
-      textSec <- case EE.findSectionByName (BSC.pack ".text") elf of
-        [] -> CME.throwError (ME.MissingGeneratedProbeSection ".text")
-        [textSection] -> return textSection
-        _ -> CME.throwError (ME.MultipleGeneratedProbeSections ".text")
-
-      let baseAddr = EE.elfSectionAddr textSec
-
-      let textSecBytes = EE.elfSectionData textSec
-      let symbolOffsetPairs = [ (entryName, toInteger (EE.steValue entry - baseAddr))
-                              | entry <- F.toList (EE.symtabEntries symbolTable)
-                              , let entryName = BSC.unpack (EE.steName entry)
-                              ]
-      -- let relevantSymbolOffsetPairs = mapMaybe (\(fnid, en, addr) -> ) supportFunNames
-      let nameMap = Map.fromList $ swap <$> Map.toList supportFunNames
-      let fnBytes = splitFunctions textSecBytes symbolOffsetPairs
-      let relevantFnBytes = mapMaybe (\(nm, bytes) -> (, bytes) <$> Map.lookup nm nameMap) fnBytes
-      return relevantFnBytes
-
-    splitFunctions textSecBytes symbolOffsetPairs =
-      go [] asList
-      where
-        asList = DL.sortOn snd symbolOffsetPairs
-        go acc [] = reverse acc
-        go acc [(sym, off)] = reverse ((sym, BS.drop (fromIntegral off) textSecBytes) : acc)
-        go acc ((sym, off) : next@(_, nextOff) : rest) =
-          let withoutPrefix = BS.drop (fromIntegral off) textSecBytes
-              justFunc = BS.take (fromIntegral nextOff - fromIntegral off) withoutPrefix
-          in go ((sym, justFunc) : acc) (next : rest)
-
-    missingSupportFunctions :: [(RT.SupportFunction, BS.ByteString)] -> [RT.SupportFunction]
-    missingSupportFunctions supportFnBytes =
-      let missing = foldl (\m (k, _) -> k `Map.delete` m) supportFunNames supportFnBytes in
-      Map.keys missing
 
 -- | Analyze the binary in the context of the pre-analysis state
 analyze
