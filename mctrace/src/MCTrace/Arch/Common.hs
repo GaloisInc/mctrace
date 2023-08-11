@@ -1,8 +1,11 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 
 module MCTrace.Arch.Common
   ( injectPlatformApiImpl
   , symAddressForSymbolPattern
+  , SymbolOffset
+  , SymbolLocation(..)
   )
 where
 
@@ -40,10 +43,18 @@ symAddressForSymbolPattern locationAnalysis symPattern = do
           LDP.SymbolPattern {} -> Map.elems $ Map.filterWithKey (checkForMatch symPattern) entryPoints
           LDP.Identifier ident -> maybe [] (:[]) $ Map.lookup (BSC.pack $ T.unpack ident) entryPoints
 
+
+newtype SymbolOffset = SymbolOffset Int
+  deriving (Eq, Ord, Show, Num, Enum, Real, Integral)
+
+data SymbolLocation arch = SymbolLocation { slSymbolBaseAddress :: R.SymbolicAddress arch 
+                                          , slSymbolOffset :: SymbolOffset
+                                          }
+
 injectPlatformApiImpl
   :: EE.ElfHeaderInfo n
   -> Map.Map RT.SupportFunction String
-  -> R.RewriteM MA.LogEvent arch (Map.Map RT.SupportFunction (R.SymbolicAddress arch, Int))
+  -> R.RewriteM MA.LogEvent arch (Map.Map RT.SupportFunction (SymbolLocation arch))
 injectPlatformApiImpl library supportFunNames = do
   -- Inject the platform API implementation and fetch the locations of
   -- the required support functions
@@ -67,7 +78,7 @@ injectPlatformApiImpl library supportFunNames = do
   symAddress <- R.injectFunction "__mctrace_platform_api_impl" bytes
   
   -- Return a mapping of support functions
-  return $ Map.map (symAddress,) supportFunctionOffsetMap
+  return $ Map.map (mkLocation symAddress) supportFunctionOffsetMap
   where
     getTextSectionAndSymbolTable :: EE.ElfHeaderInfo n -> Either ME.TraceException (EE.ElfSection (EE.ElfWordType n), EE.Symtab n)
     getTextSectionAndSymbolTable lib = CME.runExcept $ {- MC.withElfClassConstraints lib $ -} do
@@ -97,3 +108,6 @@ injectPlatformApiImpl library supportFunNames = do
                               , Map.member entryName nameMap
                               ]
       Map.fromList symbolOffsetPairs
+    mkLocation symAddress offset = SymbolLocation { slSymbolBaseAddress = symAddress
+                                                  , slSymbolOffset = SymbolOffset offset 
+                                                  }

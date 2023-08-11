@@ -12,6 +12,7 @@ import qualified Flexdis86 as F86
 import qualified Renovate as R
 import qualified Renovate.Arch.X86_64 as RX
 
+import qualified MCTrace.Arch.Common as MAC
 import qualified MCTrace.RuntimeAPI as RT
 import MCTrace.RuntimeAPI ( probeSupportFunctions, probeSupportFunctionIndexMap )
 
@@ -42,10 +43,10 @@ usedRegisters =   F86.QWordReg F86.RAX DLN.:|
 -- the support function does the right thing).
 allocMemory
   :: R.InstructionArchRepr RX.X86_64 tp
-  -> (R.SymbolicAddress RX.X86_64, Int)
+  -> MAC.SymbolLocation RX.X86_64
   -> Word32
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
-allocMemory repr (allocFnSymAddress, allocFnOffset) globalStoreSize =
+allocMemory repr allocSymbolLocation globalStoreSize =
     -- Note: Since our call is to a ConcreteAddress + int offset, we cannot fully resolve
     -- this at the time we are inserting these instructions. So, we resort to an indirect
     -- call
@@ -62,6 +63,8 @@ allocMemory repr (allocFnSymAddress, allocFnOffset) globalStoreSize =
   , i (RX.makeInstr repr "call" [ F86.QWordReg F86.R9 ])
   ]
   where
+    allocFnSymAddress = MAC.slSymbolBaseAddress allocSymbolLocation
+    allocFnOffset = MAC.slSymbolOffset allocSymbolLocation
     addAllocFunAddress (RX.AnnotatedOperand v _) =
       case v of
         (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.SymbolicRelocation allocFnSymAddress)
@@ -70,7 +73,7 @@ allocMemory repr (allocFnSymAddress, allocFnOffset) globalStoreSize =
 initializeProbeSupportFunArray
   :: R.InstructionArchRepr RX.X86_64 tp
   -> Word32
-  -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64, Int)
+  -> Map.Map RT.SupportFunction (MAC.SymbolLocation RX.X86_64)
   -> R.ConcreteAddress RX.X86_64
   -> DLN.NonEmpty (R.Instruction RX.X86_64 tp (R.Relocation RX.X86_64))
 initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFunArrayAddr =
@@ -85,7 +88,9 @@ initializeProbeSupportFunArray repr pointerWidth supportFunctions probeSupportFu
         (F86.VoidMem {}, _) -> RX.AnnotatedOperand v (R.PCRelativeRelocation probeSupportFunArrayAddr)
         _ -> RX.AnnotatedOperand v R.NoRelocation
     storeFnAddr fn =
-      let (symAddr, symOffset) = supportFunctions Map.! fn
+      let symbolLocation = supportFunctions Map.! fn
+          symAddr = MAC.slSymbolBaseAddress symbolLocation
+          symOffset = MAC.slSymbolOffset symbolLocation
           index = probeSupportFunctionIndexMap Map.! fn
       in [ RX.annotateInstrWith (addSupportFnAddr symAddr) $ RX.makeInstr repr "lea"
            [ F86.QWordReg F86.R9
@@ -121,7 +126,7 @@ linuxInitializationCode
   -- ^ Global store size
   -> R.ConcreteAddress RX.X86_64
   -- ^ The address of the global variable that will hold the pointer to the storage area
-  -> Map.Map RT.SupportFunction (R.SymbolicAddress RX.X86_64, Int)
+  -> Map.Map RT.SupportFunction (MAC.SymbolLocation RX.X86_64)
   -- ^ The symbolic addresses/offsets assigned to each support function we injected
   -> R.ConcreteAddress RX.X86_64
   -- ^ The address of the global variable that will hold array of probe accessible function addresses
