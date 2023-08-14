@@ -153,6 +153,10 @@ MCTrace has the following limitations:
    architecture.
  - Platform API implementations are subject to the following
    restrictions:
-   - Functions in the Platform API implementation must be self-contained
-     and cannot call other functions even in the same object file.
+   - The Platform API implementation must be provided as a single object file
+     to MCTrace.
+   - The Platform API implementation must be self-contained: functions
+     in the implementation are allowed to call other functions in the object file,
+     but cannot call functions outside of it, including functions from
+     the standard library.
    - Functions cannot make use of global variables.
