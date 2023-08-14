@@ -1,0 +1,220 @@
+
+\section{MCTrace}
+\label{sec:mctrace}
+
+This section describes the MCTrace tool, including its execution
+environment and requirements.  The information in this section can also
+be found in the repository at the top level, in the file
+\texttt{MCTRACE.md}.
+
+For instructions on how to build MCTrace, see
+Section~\ref{sec:building-mctrace}. 
+
+\subsection{Introduction to MCTrace}
+\label{sec:introduction-mctrace}
+
+The MCTrace tool enables users to insert instrumentation into binaries
+in order to collect fine-grained tracing information. MCTrace functions
+similarly to DTrace but does not require any operating support (or even
+an operating system). The input format of MCTrace is a subset of the
+DTrace probe script language. Prior knowledge of DTrace concepts and
+terminology is assumed in this document.
+
+\subsection{Concept of Operations}
+\label{sec:concept-operations}
+
+After identifying a program to be instrumented (e.g., for debugging
+purposes or to collect telemetry), the steps to use MCTrace are as
+follows:
+\begin{enumerate}
+\item  Write a DTrace script that collects the desired data. 
+\item Run the \texttt{mctrace} tool in \texttt{instrument} mode to insert probes into the
+   binary as directed by the script.
+\item  Run the instrumented binary.
+\item Collect telemetry data emitted by the instrumented binary and use
+   \texttt{mctrace} and associated scripts to decode it.
+\end{enumerate}
+
+The rest of this section provides more details on the steps above.
+
+\subsection{How MCTrace Works}
+\label{sec:how-mctrace-works}
+
+Using MCTrace requires:
+\begin{itemize}
+\item a PowerPC or x86\_64 ELF binary to instrument,
+\item an object file implementing the MCTrace Platform API (see below), and
+\item a DTrace probe script containing the probes that will be used to
+  modify the provided ELF binary.
+\end{itemize}
+
+MCTrace works by producing a modified version of its input binary that
+calls Dtrace probes at the points described in the DTrace probe script.
+MCTrace compiles DTrace probe scripts into native code using a compiler
+backend (e.g., LLLVM). It then uses binary rewriting to insert the
+generated probes into the binary. Through static analysis, it identifies
+program locations corresponding to DTrace probe target sites; at each
+target site, it inserts calls to the compiled probes.
+
+Some supported DTrace language features require access to
+platform-specific functionality such as memory allocation. Since the
+DTrace code will run within the context of the modified binary rather
+than an operating system kernel, MCTrace requires some additional code
+to provide access to such platform-specific features. The MCTrace tool
+provides the input program with access to this platform-specific
+functionality by way of an object file of compiled code called the
+Platform Implementation. This object code that implements the required
+functions must conform to a set of C function prototypes called the
+Platform API. A complete implementation of the Platform API must provide
+implementations of all of the functions the in header file
+\texttt{mctrace/tests/library/include/platform\_api.h} provided in the MCTrace
+GitHub repository. Once compiled, the platform API implementation must
+be provided to the \texttt{mctrace} as the \texttt{--library} argument when invoking
+the \texttt{mctrace} tool.
+
+For demonstration purposes, simple platform API implementations for
+PowerPC and x86\_64 Linux user-space are available in the repository
+in \texttt{mctrace/tests/library/} and in the standalone Docker release image in
+\texttt{examples/library/} in both source and object code forms.
+
+The following example demonstrates how an x86\_64 binary
+  \texttt{foo} would be instrumented and how its produced telemetry
+  would be obtained. In this example, the user wants to count the number
+  of times that the program performs a file read by measuring the number
+  of calls to the \texttt{read} system call. The probe script to
+    accomplish this is as follows:
+
+\begin{verbatim}
+int read\_calls;
+
+::read:entry {
+  read\_calls = read\_calls + 1;
+  send(0);
+}
+\end{verbatim}
+
+This probe increments the \texttt{read\_calls} DTrace variable just prior to
+each call to the \texttt{read} system call. Futhermore, the complete set of
+DTrace global variables (containing only \texttt{read\_calls} in this case) is
+then transmitted as telemetry according to the platform implementation
+of \texttt{send()}.
+
+Once the probes are written, \texttt{mctrace} would be invoked as follows.
+\begin{itemize}
+\item The \texttt{foo} binary and the \texttt{probes.d} probe script are provided to
+  \texttt{mctrace} as inputs.
+\item The \texttt{--output} option tells \texttt{mctrace} where the instrumented binary
+  should be written.
+\item The \texttt{--var-mapping} option tells \texttt{mctrace} where to record metadata
+  that allows it to later decode telemetry data.
+\item The \texttt{--library} option tells \texttt{mctrace} where to find the platform
+  implementation object code.
+\item The \texttt{--var-mapping} option tells \texttt{mctrace} where to write its metadata  describing the encoding of the telemetry data stream.
+\end{itemize}
+
+\begin{verbatim}
+$ mctrace instrument --binary=foo \
+                 --output=foo.instrumented \
+                 --var-mapping=foo.mapping.json \
+                 --library=mctrace/tests/library/platform\_impl.o \
+                 --script=probes.d
+\end{verbatim}
+
+The resulting binary can then be run:
+
+\begin{verbatim}
+$ ./foo.instrumented 2>telemetry.bin 
+\end{verbatim}
+
+Once the instrumented binary has finished running, the file
+\texttt{telemetry.bin} will contain the binary telemetry data corresponding
+to the value of \texttt{read\_calls} after each invocation of the probe. The
+telemetry data must then be decoded:
+
+\begin{verbatim}
+$ extractor.py foo.mapping.json --columns < telemetry.bin
+\end{verbatim}
+
+The \texttt{extractor.py} script uses the telemetry mapping file to decode the
+written telemetry data.
+
+NOTE: In this example, the instrumented binary was run with a \texttt{stderr}
+redirect. This is because the x86\_64 platform implementation for
+\texttt{send()} used in this example writes the DTrace global variable
+data to \texttt{stderr}. In practice, \texttt{send()} would trigger some other
+platform-specific mode of data transmission such as sending packets on a
+network connection, writing to a local bus, etc.
+
+For full details of the MCtrace tool's command line usage, run
+\texttt{mctrace instrument --help}.
+
+\subsection{Supported DTrace Language Features}
+\label{sec:supp-dtrace-lang}
+
+This information is also available in the repository, in \texttt{DTRACE.md}.
+
+MCTrace uses the DTrace language as the means for expressing how it
+should modify its input binary. While MCTrace does not implement all of
+the DTrace language, the following core DTrace language features are
+supported:
+\begin{itemize}
+\item Probe name pattern-matching. Supported metacharacters are `*`, `?`,
+  `[...]`, and `\`.
+\item Global variables
+\item Constants with suffixes `u`, `U`, `l`, `L`, `ul`, `UL`, `ll`, `LL`,
+  `ull`, and `ULL`
+\item Data types:
+  \begin{itemize}
+  \item`int`
+  \item  `char`
+  \item  `short`
+  \item  `long`
+  \item `long long`
+  \end{itemize}
+\item  Integer arithmetic operators `+`, `-`, and `*` 
+\item Builtins:
+  \begin{itemize}
+\item `int arg0`
+\item `timestamp`
+\item `long ucaller`
+\end{itemize}
+\end{itemize}
+
+Example DTrace probe scripts demonstrating these features can be
+found in \texttt{mctrace/tests/eval/}.
+
+In addition to the core DTrace language features listed above,
+   MCTrace also supports some additional DTrace constructs specific to
+   MCTrace:
+   \begin{itemize}
+   \item  A \texttt{send} action of the form: \texttt{send(<numeric channel ID>)}. Invoking
+     \texttt{send} will result in an invocation of the \texttt{platform\_send} function
+     in the Platform API with that channel ID and the global data store.
+   \item A \texttt{copyint32(<address>)} subroutine that returns the 32-bit value
+     from the specified location.
+   \end{itemize}
+   
+\subsection{Current Limitations of MCTrace}
+\label{sec:curr-limit-mctr}
+
+As of the Phase 2 release (7/28/23), MCTrace has the following limitations:
+\begin{itemize}
+\item MCTrace supports only statically-linked input binaries.
+\item In the current implementation, \texttt{arg0} always returns a 32-bit value
+   (on both PowerPC and x86\_64 platforms). Similarly, \texttt{copyint32}
+   takes a 32-bit address as its input on both platforms (and returns
+   a 32-bit value). As a result, these work best on the PowerPC 32-bit
+   platform since the argument and return value width match the
+   architecture.
+ \item Platform API implementations are subject to the following
+   restrictions:
+ \item Functions in the Platform API implementation must be self-contained
+     and cannot call other functions even in the same object file.
+   \item Functions in the Platform API (as opposed to DTrace scripts)
+     cannot make use of global variables. 
+   \end{itemize}
+   
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "user-manual"
+%%% End:

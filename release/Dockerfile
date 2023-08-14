@@ -49,6 +49,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV SOURCE_MCTRACE_ROOT=/root/mctrace
 ENV TARGET_MCTRACE_BIN=/mctrace-bin
 ENV TARGET_MCTRACE_ROOT=/mctrace-test
+ENV TARGET_MCTRACE_LIB=${TARGET_MCTRACE_ROOT}/examples/library
 
 # Install packages
 RUN \
@@ -77,7 +78,9 @@ COPY --from=base ${SOURCE_MCTRACE_ROOT}/mctrace/tests /${TARGET_MCTRACE_ROOT}/ex
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/cp10_demo /${TARGET_MCTRACE_ROOT}/
 
 # Copy documentation
-COPY --from=base ${SOURCE_MCTRACE_ROOT}/docs/README-release.md /${TARGET_MCTRACE_ROOT}/README.md
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/release/README.md /${TARGET_MCTRACE_ROOT}/
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/MCTRACE.md /${TARGET_MCTRACE_ROOT}/
+COPY --from=base ${SOURCE_MCTRACE_ROOT}/DTRACE.md /${TARGET_MCTRACE_ROOT}/
 
 # Copy extractor script
 COPY --from=base ${SOURCE_MCTRACE_ROOT}/scripts/extractor.py ${TARGET_MCTRACE_BIN}

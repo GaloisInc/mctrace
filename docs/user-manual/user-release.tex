@@ -1,0 +1,150 @@
+\section{User Release}
+\label{sec:user-release}
+
+This section describes how to run the standalone Docker image for
+MCTrace described in Section~\ref{sec:introduction}.   Much of this
+information is also available in the repository as
+\texttt{release/README.md}, or in the standalone Docker image itself, as
+\texttt{README.md}, at the top level.
+
+To load and run the image, run the following commands from a directory
+containing the image, using the filename \texttt{mctrace.tar.gz}
+
+\begin{verbatim}
+docker image load -i mctrace.tar.gz
+docker run -it -w /mctrace-test mctrace
+\end{verbatim}
+
+This will drop you into a bash shell within the Docker container in the
+directory \texttt{mctrace-test} where you can use \texttt{mctrace} to instrument
+binaries.  All relative paths mentioned in this section are relative to
+\texttt{mctrace-test}.
+
+\subsection{Docker Image Contents}
+
+The docker image contains PowerPC and x86\_64 test programs and example
+probes that can be used to exercise MCTrace.  Important folders are as
+follows:
+\begin{itemize}
+\item \texttt{examples/eval} contains a collection of probes primarily derived
+   from those provided to us by WebSensing. The probes have been
+   modified slightly after discussions with WebSensing to fit the
+  currently supported DTrace syntax in MCTrace.
+\item \texttt{examples/full} contains source code and binaries for bundled test
+   programs.
+\item \texttt{examples/binaries} contains binaries from a statically compiled
+   version of GNU coreutils for use with \texttt{mctrace}.
+ \end{itemize}
+ 
+\subsection{Using MCTrace in this demonstration}
+
+The \texttt{mctrace} tool is in the shell \texttt{PATH} when running within Docker,
+so no special steps are needed to be able to invoke the executable.
+For instructions on how to run the \texttt{mctrace} tool with the appropriate
+command-line arguments, see \texttt{MCTRACE.md} included in the Docker image.
+
+As an example, the \texttt{read-write-syscall-PPC.4.inst} binary in this
+distribution is the instrumented version of the PowerPC binary
+\texttt{read-write-syscall-PPC} and was instrumented with the following
+\texttt{mctrace} command:
+
+\begin{verbatim}
+mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
+   --output=/mctrace-test/examples/full/read-write-syscall-PPC.4.inst \
+   --library=/mctrace-test/examples/library/PPC/platform_impl.o \
+   --var-mapping=/mctrace-test/examples/full/read-write-syscall-PPC.4.json \
+   --script=/mctrace-test/examples/eval/write-timing-probe.d
+\end{verbatim}
+
+\begin{itemize}
+\item The \texttt{--binary} and the \texttt{--script} options tell mctrace to instrument
+  the specified binary with the given probe script.
+\item The \texttt{--output} option specifies the name for the instrumented binary.
+\item The \texttt{--library} option specifies the path to the Platform API
+  implementation.
+\item The \texttt{--var-mapping} option tells \texttt{mctrace} where to record metadata
+  that allows it to later interpret the collected telemetry.
+\end{itemize}
+
+The above command instruments the binary with probes that triggers
+at the start and end of the \texttt{write} function and computes timing
+information for the call. Note that the instrumentation command produces
+a significant amount of DEBUG logs, that can be ignored at the moment.
+
+When probes call the DTrace \texttt{send} action, the current test
+implementation of \texttt{send} pushes the set of telemetry variables, in a
+compact binary format, to the standard error. A script \texttt{extractor.py}
+has been included with the image to help interpret this data.
+
+To invoke the instrumented binary and use the \texttt{extractor.py} script to
+decode any emitted telemetry:
+\begin{verbatim}
+/mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1
+>/dev/null | \
+  extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json \
+  --extract --big-endian
+\end{verbatim}
+This produces output similar to the following:
+\begin{verbatim}
+{"write_count":1,"write_elapsed":162240,"write_ts":1681222607714740774} 
+{"write_count":2,"write_elapsed":1740,"write_ts":1681222607714800756} 
+{"write_count":3,"write_elapsed":1309,"write_ts":1681222607714803400} 
+{"write_count":4,"write_elapsed":1344,"write_ts":1681222607714805742} 
+{"write_count":5,"write_elapsed":1228,"write_ts":1681222607714807992} 
+{"write_count":6,"write_elapsed":1222,"write_ts":1681222607714810214} 
+{"write_count":7,"write_elapsed":1257,"write_ts":1681222607714812555} 
+\end{verbatim}
+
+Note that \texttt{2>\&1 >/dev/null} has the effect of piping the standard
+  error to the next command while suppressing the standard output of the
+  command. We do this because the provided platform API implementations
+  writes \texttt{send()} data to \texttt{stderr} and we need that data to be piped to
+  the extractor script.
+
+When extracting telemetry data from instrumented PowerPC binaries, the
+  flag \texttt{--big-endian} must be passed to the extractor script as in the
+  command above. The flag should be elided when working with x86\_64
+  binaries.
+
+The \texttt{extractor.py} script offers a few other conveniences when
+  extracting data from instrumented programs; for example it can produce
+  columnar outputs and filter columns. See \texttt{extractor.py --help} for
+  details on these options.  See 
+
+See the file README.md for a list of other binaries for PowerPC and
+x86\_64 included 
+  in the Docker image as well some example probes that can be used to
+  instrument each binary. Note that many other combinations of example
+  programs and probes can work together; the full list of combinations
+  can be found in \texttt{examples/full/Makefile}.
+  
+% \begin{center}
+%   \begin{tabular}{ |l|l| }
+%     \hline
+%  Binaries &   Probe \\
+% \hline 
+% \hline 
+%  \texttt{examples/full/alloc-dealloc-fread-fwrite-PPC},  \texttt{examples/full/alloc-dealloc-fread-fwrite-X86} & \texttt{examples/eval/fopen-calloc-fclose-probe.d} \\
+% \hline 
+% \texttt{examples/full/slow-read-write-PPC},  \texttt{examples/full/slow-read-write-X86} &                   \texttt{examples/eval/write-timing-probe.d}  \\
+% \hline 
+% \texttt{examples/full/read-write-syscall-PPC}, \texttt{examples/full/read-write-syscall-X86}                 & \texttt{examples/eval/graph-probe.d}   \\
+% \hline 
+%     \texttt{examples/full/array-sum-PPC}            &
+%                                                       \texttt{examples/eval/copy-probe.d} \\
+% \hline 
+% \texttt{examples/binaries/PPC/cat}, \texttt{examples/binaries/X86/cat}                                     & \texttt{examples/eval/cat-probe.d} \\
+% \hline 
+% \texttt{examples/binaries/PPC/sha256sum}, \texttt{examples/binaries/X86/sha256sum}                           & \texttt{examples/eval/sha256sum-probe.d} \\
+% \hline 
+% \hline 
+%   \end{tabular}
+% \end{center}
+% The first two probes above measure timing across different calls,
+%   while the third one instruments *all* functions in the binary.
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "user-manual"
+%%% End:
+  

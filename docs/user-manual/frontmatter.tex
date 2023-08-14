@@ -1,0 +1,13 @@
+DTrace is a popular tool supporting the definition of small snippets of code which are then inserted into an application at specified locations.\footnote{\url{https://en.wikipedia.org/wiki/DTrace}}  For example, these code snippets might be inserted directly before and after every call made to a given function, for example a syscall such as write(), in order to track the time elapsed each time the function is called.  Such probes are defined in the DTrace scripting language and inserted into the source, which is then compiled.
+
+The MCTrace tool is intended to provide the same functionality as DTrace, without requiring access to application source code, or to the DTrace run-time.  For MCTrace, the probes defined as DTrace scripts are  compiled into the appropriate machine language for the target architecture, and then inserted into the binary.  Note that the binary must be modified both to include the code for the probes themselves, as well as inserting the calls to those probes at specified locations in the original binary code.
+
+\vspace{0.25in}
+
+\noindent\small{Distribution Statement A. Approved for public release: distribution unlimited.}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "user-manual"
+%%% End:
+  
