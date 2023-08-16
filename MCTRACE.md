@@ -40,7 +40,7 @@ Using MCTrace requires:
 MCTrace works by producing a modified version of its input binary that
 calls Dtrace probes at the points described in the DTrace probe script.
 MCTrace compiles DTrace probe scripts into native code using a compiler
-backend (e.g., LLLVM). It then uses binary rewriting to insert the
+backend (e.g., LLVM). It then uses binary rewriting to insert the
 generated probes into the binary. Through static analysis, it identifies
 program locations corresponding to DTrace probe providers; at each
 provider site, it inserts calls to the compiled probes.
@@ -60,6 +60,9 @@ provide implementations of all of the functions the in header file
 GitHub repository. Once compiled, the platform API implementation must
 be provided to the `mctrace` as the `--library` argument when invoking
 the `mctrace` tool.
+
+Implementations of the Platform API are subject to some restrictons
+currently as described in the [following section](#current-limitations-of-mctrace).
 
 For demonstration purposes, simple platform API implementations for
 PowerPC and `x86_64` Linux user space are available in the repository
@@ -155,8 +158,20 @@ MCTrace has the following limitations:
    restrictions:
    - The Platform API implementation must be provided as a single object file
      to MCTrace.
-   - The Platform API implementation must be self-contained: functions
-     in the implementation are allowed to call other functions in the object file,
-     but cannot call functions outside of it, including functions from
-     the standard library.
-   - Functions cannot make use of global variables.
+   - The Platform API implementation must be self-contained. From a technical
+     point-of-view, we require that the `.text` section of the object file
+     contains code that does not refer to anything outside of that section.
+     In essence this implies that:
+      - Functions cannot make use of global variables.
+      - Functions in the implementation are allowed to call other functions
+        in the object file, but cannot call functions outside of it, including
+        functions from the standard library.
+      - We require that the calls between functions be made via direct relative
+        offsets (and not via relocation tables).
+
+        The precise mechanism to induce a compiler generate calls using relative
+        offsets are likely somewhat compiler and platform specific, however `gcc`
+        on both `x86-64` and PowerPC 32-bit platforms appear to generate such code
+        as long as the functions being called have a `static` scope.  
+
+      
