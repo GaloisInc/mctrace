@@ -168,10 +168,7 @@ MCTrace has the following limitations:
         functions from the standard library.
       - We require that the calls between functions be made via direct relative
         offsets (and not via relocation tables).
-
-        The precise mechanism to induce a compiler generate calls using relative
-        offsets are likely somewhat compiler and platform specific, however `gcc`
+      - The precise mechanism to induce a compiler generate calls using relative
+        offsets are somewhat compiler and platform specific, however `gcc`
         on both `x86-64` and PowerPC 32-bit platforms appear to generate such code
         as long as the functions being called have a `static` scope.  
-
-      
