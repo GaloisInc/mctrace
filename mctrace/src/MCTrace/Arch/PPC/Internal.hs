@@ -82,14 +82,18 @@ withCallerSaveRegisters instrs =
         D.Instruction D.MFCR (gpr 7 :< Nil),
         D.Instruction D.STW (regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 4)) :< gpr 7 :< Nil),
         D.Instruction D.MFLR (gpr 7 :< Nil),
-        D.Instruction D.STW (regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 8)) :< gpr 7 :< Nil)
+        D.Instruction D.STW (regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 8)) :< gpr 7 :< Nil),
+        D.Instruction D.MFCTR (gpr 7 :< Nil),
+        D.Instruction D.STW (regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 12)) :< gpr 7 :< Nil)
      ]
     popRegisters = map i $
       [
         D.Instruction D.LWZ (gpr 7 :< regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 4)) :< Nil),
         D.Instruction D.MTCRF (gpr 7 :< D.I32imm crMask :< Nil),
         D.Instruction D.LWZ (gpr 7 :< regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 8)) :< Nil),
-        D.Instruction D.MTLR (gpr 7 :< Nil)
+        D.Instruction D.MTLR (gpr 7 :< Nil),
+        D.Instruction D.LWZ (gpr 7 :< regOffset 1 (fromIntegral (length callerSaveGprs * 4 + 12)) :< Nil),
+        D.Instruction D.MTCTR (gpr 7 :< Nil)
       ] ++ zipWith (
         \r off -> D.Instruction D.LWZ (gpr r :< regOffset 1 off :< Nil)
       ) callerSaveGprs [4, 8 ..]

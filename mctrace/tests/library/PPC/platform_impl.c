@@ -14,21 +14,13 @@
 
 #include "include/platform_api.h"
 
+static void write_stderr(void* str, uint32_t sz) ;
+
 void platform_send(uint32_t fd, void* str, uint32_t sz) {
     //Currently we *always* force the write to go to stderr
     //(file descriptor = 2) irrespective of what was passed
     //in as the value of fd
-    ssize_t ret = 0;
-    __asm__ __volatile__(
-        "ori %%r3, %[fd], 0;"
-        "ori %%r4, %[str], 0;"
-        "ori %%r5, %[sz], 0;"
-        "li %%r0, 4;"
-        "sc;"
-        : "=g" (ret)
-        : [fd] "r" (2), [str] "r" (str), [sz] "r" ((size_t)sz)
-        : "r3", "r4", "r5", "r0"
-    );
+    write_stderr(str, sz);
 }
 
 void* platform_alloc_memory(size_t sz) {
@@ -68,4 +60,18 @@ uint64_t platform_timestamp() {
     );
 
     return ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
+static void write_stderr(void* str, uint32_t sz) {
+    ssize_t ret = 0;
+    __asm__ __volatile__(
+        "ori %%r3, %[fd], 0;"
+        "ori %%r4, %[str], 0;"
+        "ori %%r5, %[sz], 0;"
+        "li %%r0, 4;"
+        "sc;"
+        : "=g" (ret)
+        : [fd] "r" (2), [str] "r" (str), [sz] "r" ((size_t)sz)
+        : "r3", "r4", "r5", "r0"
+    );
 }

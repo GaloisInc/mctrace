@@ -4,7 +4,7 @@ long elapsed ;
 long cumulative ;
 
 ::read:entry {
-	cnt = cnt + 1;
+    cnt = cnt + 1;
     ts = timestamp;
     elapsed = 0l;
 }
@@ -12,4 +12,5 @@ long cumulative ;
 ::read:return {
   elapsed = timestamp - ts ;
   cumulative = cumulative + elapsed ;
+  send(1);
 }
