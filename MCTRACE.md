@@ -46,20 +46,21 @@ program locations corresponding to DTrace probe providers; at each
 provider site, it inserts calls to the compiled probes.
 
 Some supported DTrace language features need access to platform-specific
-functionality such as memory allocation. Since the DTrace code
-will run within the context of the modified binary rather than an
-operating system kernel, MCTrace requires some additional code to
-provide access to such platform-specific features. The MCTrace tool
-provides the input program with access to this platform-specific
-functionality by way of an object file of compiled code called the
-Platform Implementation. The object code that implements the required
-functions must conform to a set of C function prototypes called the
-Platform API. A complete implementation of the Platform API must
-provide implementations of all of the functions the in header file
+functionality such as memory allocation. Since the DTrace code will run
+within the context of the modified binary rather than an operating
+system kernel, MCTrace requires some additional code to provide access
+to such platform-specific features. The MCTrace tool provides the input
+program with access to this platform-specific functionality by way of an
+object file of compiled code called the Platform Implementation. The
+object code that implements the required functions must conform to a set
+of C function prototypes called the Platform API. A complete
+implementation of the Platform API must provide implementations of all
+of the functions the in header file
 `mctrace/tests/library/include/platform_api.h` provided in the MCTrace
-GitHub repository. Once compiled, the platform API implementation must
-be provided to the `mctrace` as the `--library` argument when invoking
-the `mctrace` tool.
+GitHub repository (also in `library\include` in the release Docker
+image) . Once compiled, the platform API implementation must be provided
+to the `mctrace` as the `--library` argument when invoking the `mctrace`
+tool.
 
 Implementations of the Platform API are subject to some restrictons
 currently as described in the [following section](#current-limitations-of-mctrace).
@@ -165,10 +166,12 @@ MCTrace has the following limitations:
       - Functions cannot make use of global variables.
       - Functions in the implementation are allowed to call other functions
         in the object file, but cannot call functions outside of it, including
-        functions from the standard library.
+        functions from the standard library.  NOTE: syscalls are
+        supported.  See the architecture-appropriate version of
+        `platform_api.c` for examples.
       - We require that the calls between functions be made via direct relative
         offsets (and not via relocation tables).
-      - The precise mechanism to induce a compiler generate calls using relative
+      - The precise mechanism to induce a compiler to generate calls using relative
         offsets are somewhat compiler and platform specific, however `gcc`
         on both `x86-64` and PowerPC 32-bit platforms appear to generate such code
         as long as the functions being called have a `static` scope.  

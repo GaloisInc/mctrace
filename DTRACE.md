@@ -26,7 +26,8 @@ supported:
   * `long ucaller`
 
 Example DTrace probe scripts demonstrating MCTrace's features can be
-found in `mctrace/tests/eval/` in the MCTrace GitHub repository.
+found in `mctrace/tests/eval/` in the MCTrace GitHub repository, as well
+as in the `examples` directory in the release Docker image.
 
 MCTrace-specific DTrace extensions
 ----------------------------------

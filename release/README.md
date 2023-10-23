@@ -21,6 +21,15 @@ Docker Image Contents
 
 The docker image provided with this README contains PowerPC and `x86_64`
 test programs and example probes that can be used to exercise MCTrace.
+
+Two documentation files are available in the top-level directory:
+
+* `MCTRACE.md` describes the features and limitations of the current
+  MCTrace tool.
+
+* `DTRACE.md` describes the subset of the DTRACE language supported by
+  the current implementation
+
 Important folders are as follows:
 
  * `examples/eval` contains a collection of probes primarily derived
