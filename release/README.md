@@ -86,6 +86,12 @@ decode any emitted telemetry:
     /mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1 >/dev/null | \
         extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json --extract --big-endian
 
+NOTE: if running the instrumented binary as above fails for a PPC
+binary, run this through `qemu-ppc` as follows:
+
+    qemu-ppc /mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1 >/dev/null | \
+        extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json --extract --big-endian
+
 This produces output similar to the following:
 
     {"write_count":1,"write_elapsed":162240,"write_ts":1681222607714740774}
