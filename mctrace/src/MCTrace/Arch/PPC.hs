@@ -35,6 +35,7 @@ import qualified MCTrace.Arch.PPC.Setup as MAS
 import qualified MCTrace.Codegen as MC
 import qualified MCTrace.RuntimeAPI as RT
 import qualified MCTrace.ProbeProvider as MP
+import qualified MCTrace.PLT as PLT
 
 -- | Run a pre-analysis pass in the rewriter monad ('R.RewriteM')
 --
@@ -73,7 +74,7 @@ preAnalyze probeIndex library env = do
                            , MA.injectedEntryAddr = setupSymAddr
                            }
 
--- type instance PLT.ArchRelocationType RX.PPC32 = EEP.X86_64_RelocationType
+type instance PLT.ArchRelocationType RX.PPC32 = EE.PPC32_RelocationType
 
 indexFunctionEntries
   :: (R.ArchConstraints arch
@@ -85,7 +86,7 @@ indexFunctionEntries
   => env arch binFmt
   -> Map.Map BS.ByteString (R.ConcreteAddress arch)
 indexFunctionEntries env =
-  {- PLT.pltStubSymbols env <> -} Map.fromList normalSymbols
+    PLT.pltStubSymbols env <> Map.fromList normalSymbols
   where
     blockInfo = R.analysisBlockInfo env
     normalSymbols = [ (fromMaybe (BSC.pack (show entryAddr)) (DMD.discoveredFunSymbol dfi), entryAddr)
