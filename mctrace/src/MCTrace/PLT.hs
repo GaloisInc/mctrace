@@ -88,6 +88,7 @@ extractPltAddrs _ dynSec vam vdefm vreqm loadOptions elf = do
   let (pltSize, pltStubSize) = case EE.elfMachine elf of
         EE.EM_X86_64 -> (16, 16)
         EE.EM_ARM -> (20, 12)
+        EE.EM_PPC -> (72, 8)
         em -> error ("Unexpected architecture: " ++ show em)
   return (buildAssocList nameRelaMap (pltSize + toInteger pltBase) pltStubSize loadOptions)
 
