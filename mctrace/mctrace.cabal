@@ -75,7 +75,8 @@ library
 
 executable mctrace
   main-is:             Main.hs
-  other-modules:       Options
+  other-modules:       Options,
+                       Patch 
   build-depends:       base,
                        aeson >= 1.4 && < 1.6,
                        binary,
@@ -89,6 +90,7 @@ executable mctrace
                        llvm-hs,
                        lumberjack,
                        text,
+                       mtl >= 2 && < 3,
                        elf-edit,
                        crucible,
                        macaw-loader,

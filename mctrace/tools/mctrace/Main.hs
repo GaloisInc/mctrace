@@ -47,6 +47,7 @@ import qualified MCTrace.Loader as ML
 import qualified MCTrace.Panic as MP
 
 import qualified Options as O
+import qualified Patch as P
 
 withOptional :: Maybe a -> (a -> IO ()) -> IO ()
 withOptional ma k =
@@ -101,7 +102,7 @@ renovateLogger = LJ.LogAction $ \diag -> do
 instrument :: O.IOptions -> IO ()
 instrument iopts = do
   probes <- ML.loadProbes (O.iDTraceFile iopts)
-  someHeader <- ML.loadBinary (O.iInputExecutableFile iopts)
+  someHeader <- ML.loadBinary (O.iInputExecutableFile iopts) >>= P.patchElf
   case MCL.compileProbesLLVM "dtraceProbes" probes of
     MCL.CompiledProbes gvars gvarOffsets namedProbes llvmModule -> do
       LLT.initializeAllTargets
