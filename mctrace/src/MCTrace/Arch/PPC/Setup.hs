@@ -71,7 +71,7 @@ initializeProbeSupportFunArray _repr pointerWidth supportFunctions probeSupportF
           symOffset = MAC.slSymbolOffset symbolLocation
           index = probeSupportFunctionIndexMap Map.! fn
       in annotateInstrWith (addSupportFnAddr symAddr) (
-           i (D.Instruction D.LA (gpr 7 :< D.S16imm 0 :< gpr_nor0 6 :< Nil))
+           i (D.Instruction D.LI (gpr 7 :< D.S16imm 0 :< Nil))
          ) DLN.:|
          [ i (D.Instruction D.ADDI (gpr 7 :< D.S16imm (fromIntegral symOffset) :< gpr_nor0 7 :< Nil))
          , i (D.Instruction D.STW (regOffset 8 (displacement index) :< gpr 7 :< Nil)) 
@@ -79,7 +79,7 @@ initializeProbeSupportFunArray _repr pointerWidth supportFunctions probeSupportF
     addSupportFnAddr :: R.SymbolicAddress RP.PPC32 -> D.Operand x -> D.Annotated (R.Relocation RP.PPC32) D.Operand x
     addSupportFnAddr symAddr op =
       case op of
-        D.Gprc_nor0 _ -> D.Annotated (R.SymbolicRelocation symAddr) op
+        D.S16imm _ -> D.Annotated (R.SymbolicRelocation symAddr) op 
         _ -> D.Annotated R.NoRelocation op
     displacement index = fromIntegral (fromIntegral index * pointerWidth)
 

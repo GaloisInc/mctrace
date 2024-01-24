@@ -9,7 +9,7 @@
 
 module MCTrace.Arch.PPC.Internal (
   makeInstr, i, il, annotateInstrWith,
-  gpr, gpr_nor0, regOffset, loadImm32,
+  gpr, gpr_nor0, regOffset, 
   loadConcreteAddress, withCallerSaveRegisters
 ) where
 
@@ -52,17 +52,15 @@ gpr_nor0 = D.Gprc_nor0 . D.GPR
 regOffset :: Word8 -> Int16 -> D.Operand "Memri"
 regOffset reg offset = D.Memri (D.MemRI (Just (D.GPR reg)) offset)
 
-loadImm32 :: Word8 -> Word32 -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-loadImm32 reg imm =
-  i (D.Instruction D.LIS (gpr reg :< D.S17imm (fromIntegral topBits) :< Nil)) DLN.:|
-  [ i (D.Instruction D.ORI (gpr reg :< D.U16imm (fromIntegral lowBits) :< gpr reg :< Nil)) ]
-  where
-    topBits = imm `B.shiftR` 16
-    lowBits = imm B..&. 0xFFFF
-
 loadConcreteAddress :: Word8 -> R.ConcreteAddress RP.PPC32 -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-loadConcreteAddress reg addr = loadImm32 reg (fromIntegral (R.absoluteAddress addr))
-
+loadConcreteAddress reg addr = annotateInstrWith addSymbolicAddress <$> il (D.Instruction D.LI (gpr reg :< D.S16imm 0 :< Nil))
+  where
+    addSymbolicAddress :: D.Operand x -> D.Annotated (R.Relocation RP.PPC32) D.Operand x
+    addSymbolicAddress op = case op of
+      D.S16imm _ -> D.Annotated (R.SymbolicRelocation (R.stableAddress addr)) op
+      _ -> D.Annotated R.NoRelocation op
+    
+    
 withCallerSaveRegisters
   :: DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
