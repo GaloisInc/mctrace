@@ -9,7 +9,7 @@
 
 module MCTrace.Arch.PPC.Internal (
   makeInstr, i, il, annotateInstrWith,
-  gpr, gpr_nor0, regOffset, 
+  gpr, gpr_nor0, regOffset,
   loadConcreteAddress, withCallerSaveRegisters
 ) where
 
@@ -58,8 +58,7 @@ loadConcreteAddress reg addr = annotateInstrWith addSymbolicAddress <$> il (D.In
     addSymbolicAddress op = case op of
       D.S16imm _ -> D.Annotated (R.SymbolicRelocation (R.stableAddress addr)) op
       _ -> D.Annotated R.NoRelocation op
-    
-    
+
 withCallerSaveRegisters
   :: DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
   -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
