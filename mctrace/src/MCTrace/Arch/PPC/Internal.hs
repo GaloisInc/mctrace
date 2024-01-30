@@ -35,7 +35,9 @@ i instr = fmap (const R.NoRelocation) (makeInstr instr)
 il :: D.Instruction -> DLN.NonEmpty (RP.Instruction RP.OnlyEncoding (R.Relocation RP.PPC32))
 il instr = i instr DLN.:| []
 
-annotateInstrWith :: (forall x. D.Operand x -> D.Annotated b D.Operand x) -> RP.Instruction RP.OnlyEncoding a -> RP.Instruction RP.OnlyEncoding b
+annotateInstrWith :: (forall x. D.Operand x -> D.Annotated b D.Operand x)
+                  -> RP.Instruction RP.OnlyEncoding a
+                  -> RP.Instruction RP.OnlyEncoding b
 annotateInstrWith f instr = RP.fromAnnotatedInst RP.PPCRepr newDInstr
   where
     mapInstr (D.Instruction opc operands) = D.Instruction (coerce opc) (FC.fmapFC f operands)
@@ -51,8 +53,11 @@ gpr_nor0 = D.Gprc_nor0 . D.GPR
 regOffset :: Word8 -> Int16 -> D.Operand "Memri"
 regOffset reg offset = D.Memri (D.MemRI (Just (D.GPR reg)) offset)
 
-loadConcreteAddress :: Word8 -> R.ConcreteAddress RP.PPC32 -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
-loadConcreteAddress reg addr = annotateInstrWith addSymbolicAddress <$> il (D.Instruction D.LI (gpr reg :< D.S16imm 0 :< Nil))
+loadConcreteAddress :: Word8
+                    -> R.ConcreteAddress RP.PPC32
+                    -> DLN.NonEmpty (R.Instruction RP.PPC32 RP.OnlyEncoding (R.Relocation RP.PPC32))
+loadConcreteAddress reg addr =
+  annotateInstrWith addSymbolicAddress <$> il (D.Instruction D.LI (gpr reg :< D.S16imm 0 :< Nil))
   where
     addSymbolicAddress :: D.Operand x -> D.Annotated (R.Relocation RP.PPC32) D.Operand x
     addSymbolicAddress op = case op of
