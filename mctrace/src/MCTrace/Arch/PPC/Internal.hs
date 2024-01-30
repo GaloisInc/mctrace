@@ -13,10 +13,9 @@ module MCTrace.Arch.PPC.Internal (
   loadConcreteAddress, withCallerSaveRegisters
 ) where
 
-import qualified Data.Bits as B
 import           Data.Coerce ( coerce )
 import qualified Data.List.NonEmpty as DLN
-import           Data.Word ( Word8, Word32 )
+import           Data.Word ( Word8 )
 import qualified Data.Parameterized.TraversableFC as FC
 import           Data.Parameterized.List( List(..) )
 import           GHC.Int ( Int16 )
