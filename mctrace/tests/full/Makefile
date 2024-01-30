@@ -121,4 +121,4 @@ instrument_binaries: $(if $(filter PPC,$(ARCH)),instrument_binaries_PPC,instrume
 
 clean:
 	find . -name '*.o' -delete
-	rm -f *.inst *-X86 *-PPC ../library/$(ARCH)/*.o
+	rm -f *.json *.inst *-X86 *-PPC ../library/$(ARCH)/*.o
