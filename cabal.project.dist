@@ -10,7 +10,6 @@ packages: language-dtrace
           submodules/llvm-pretty
           submodules/llvm-pretty-bc-parser
           submodules/what4/what4
-          submodules/what4-serialize
           submodules/crucible/crucible
           submodules/crucible/crucible-llvm
           submodules/crucible/crucible-symio
