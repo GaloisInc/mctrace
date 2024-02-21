@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 module Main ( main ) where
 
+import           Control.Applicative ((<|>))
 import qualified Control.Exception as X
 import qualified Data.Aeson as DA
 import qualified Data.Binary.Get as DBG
@@ -28,8 +29,10 @@ import qualified System.Directory as SD
 import qualified System.Exit as SE
 import qualified System.IO as SI
 
+import           Data.Macaw.Architecture.Info
 import qualified Data.Macaw.BinaryLoader as MBL
 import           Data.Macaw.BinaryLoader.X86 ()
+import qualified Data.Macaw.X86 as X86
 import           Data.Macaw.X86.Symbolic ()
 import qualified Lang.Crucible.FunctionHandle as LCF
 import qualified Renovate as R
@@ -70,7 +73,10 @@ archConfigurations
   -> DE.ElfHeaderInfo n
   -> [(R.Architecture, R.SomeConfig (R.AnalyzeAndRewrite MA.LogEvent) (MA.ProbeLocationAnalysisResult globals))]
 archConfigurations probes library =
-  [ (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr (RX.config (MRAX.x86Rewriter probes library)))
+  [ let customConfig = (RX.config (MRAX.x86Rewriter probes library)) { R.rcArchInfo = customArchInfo }
+        customArchInfo _ = X86.x86_64_linux_info { archClassifier = customClassifier }
+        customClassifier = archClassifier X86.x86_64_linux_info <|> X86.weakReturnClassifier
+    in (R.X86_64, R.SomeConfig (PN.knownNat @64) MBL.Elf64Repr customConfig)
   , (R.PPC32, R.SomeConfig (PN.knownNat @32) MBL.Elf32Repr (RP.config32 (MRAP.ppcRewriter probes library)))
   ]
 
