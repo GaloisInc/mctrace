@@ -47,7 +47,7 @@ symAddressForSymbolPattern locationAnalysis symPattern = do
 newtype SymbolOffset = SymbolOffset Int
   deriving (Eq, Ord, Show, Num, Enum, Real, Integral)
 
-data SymbolLocation arch = SymbolLocation { slSymbolBaseAddress :: R.SymbolicAddress arch 
+data SymbolLocation arch = SymbolLocation { slSymbolBaseAddress :: R.SymbolicAddress arch
                                           , slSymbolOffset :: SymbolOffset
                                           }
 
@@ -63,20 +63,20 @@ injectPlatformApiImpl library supportFunNames = do
   (textSec, symbolTable) <- case getTextSectionAndSymbolTable library of
     Left err -> X.throwM err
     Right v -> return v
-  
+
   -- Use that to figure out where the required support functions are
   -- with respect to the start of the text section
   let supportFunctionOffsetMap = indexFunctions library textSec symbolTable
-  
+
   -- Check if any support functions are missing
   let missingFns = Map.difference supportFunNames supportFunctionOffsetMap
   unless (Map.null missingFns) $
     X.throwM (ME.MissingSupportFunction (show <$> Map.keys missingFns))
-  
+
   -- Inject the whole text section in to the binary
   let bytes = EE.elfSectionData textSec
   symAddress <- R.injectFunction "__mctrace_platform_api_impl" bytes
-  
+
   -- Return a mapping of support functions
   return $ Map.map (mkLocation symAddress) supportFunctionOffsetMap
   where
@@ -86,7 +86,7 @@ injectPlatformApiImpl library supportFunNames = do
       -- throw errors if we do not find what we are looking for
       let (errs, elf) = EE.getElf lib
       unless (null errs) $ do
-        CME.throwError (ME.ELFParseError errs)    
+        CME.throwError (ME.ELFParseError errs)
       symbolTable <- case EE.elfSymtab elf of
         [] -> CME.throwError (ME.MissingGeneratedProbeSection ".symtab")
         [symtab] -> return symtab
@@ -95,7 +95,7 @@ injectPlatformApiImpl library supportFunNames = do
         [] -> CME.throwError (ME.MissingGeneratedProbeSection ".text")
         [textSection] -> return textSection
         _ -> CME.throwError (ME.MultipleGeneratedProbeSections ".text")
-      return (textSec, symbolTable)        
+      return (textSec, symbolTable)
     indexFunctions :: EE.ElfHeaderInfo n -> EE.ElfSection (EE.ElfWordType n) -> EE.Symtab n -> Map.Map RT.SupportFunction Int
     indexFunctions lib textSec symbolTable = MC.withElfClassConstraints lib $ do
       -- Compute the relative location (with respect to the start of the text section)
