@@ -7,7 +7,7 @@
 module Patch (
     patchElf
 ) where
-    
+
 import qualified Control.Exception as X
 import           Control.Monad ( unless )
 import qualified Data.ByteString as BS
@@ -17,7 +17,7 @@ import qualified Data.Functor.Identity as I
 
 import qualified Data.ElfEdit as E
 
-data PatchException = PatchException 
+data PatchException = PatchException
     deriving Show
 
 instance X.Exception PatchException
@@ -40,7 +40,7 @@ patchSectionTypes expectedTypes sec = do
         Nothing -> Just sec
 
 expectedSectionTypes :: Map.Map BS.ByteString E.ElfSectionType
-expectedSectionTypes = 
+expectedSectionTypes =
     Map.fromList [ (".plt", E.SHT_PROGBITS) ]
 
 
