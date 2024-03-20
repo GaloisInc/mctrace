@@ -110,11 +110,11 @@ options = O.info (O.helper <*> O.hsubparser parser)
                            ))
                        <*> O.flag False True
                            ( O.long "patch-got-section-flags"
-                           <> O.help "Whether to force the .got section to have Write/Alloc flags only"
+                           <> O.help "Whether to force the .got section to have Write/Alloc flags only (affects output binary)"
                            )
                        <*> O.flag False True
                            ( O.long "patch-plt-section-type"
-                           <> O.help "Whether to force the .plt section to have type PROGBITS"
+                           <> O.help "Whether to force the .plt section to have type PROGBITS (affects output binary)"
                            )
                            )
     eparser = Extract <$> (EOptions <$> O.strOption
