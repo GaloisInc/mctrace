@@ -14,7 +14,7 @@ module Patch
 where
 
 import qualified Control.Exception as X
-import           Control.Monad ( unless )
+import           Control.Monad ( unless, forM_ )
 import           Data.Bits ( (.|.) )
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -50,13 +50,18 @@ data ElfPatch =
     deriving (Eq, Show, Ord)
 
 patchElf :: [ElfPatch] -> E.SomeElf E.ElfHeaderInfo -> IO (E.SomeElf E.ElfHeaderInfo)
-patchElf [] e = return e
+patchElf [] e = do
+    putStrLn "Notice: no ELF patches enabled"
+    return e
 patchElf patches (E.SomeElf (eHeaderInfo :: E.ElfHeaderInfo w)) = do
     -- Parse the elf
     -- TODO: Use a better mechanism than just printing out parse errors
     let (elfParseErrors, elf) = E.getElf eHeaderInfo
     unless (null elfParseErrors) $
         mapM_ print elfParseErrors
+
+    forM_ patches $ \p ->
+        putStrLn $ "ELF patch enabled: " <> show p
 
     E.elfClassInstances (E.headerClass $ E.header eHeaderInfo) $ do
         updateElfSections elf (upd (Proxy @w))
