@@ -33,6 +33,12 @@ data IOptions =
            , iTextSectionName :: Maybe String
            -- ^ The name of the section to treat as the ".text" section
            -- when analyzing the input binary
+           , iPatchGOTSectionFlags :: Bool
+           -- ^ Whether to apply the GOTSectionFlags patch to the input
+           -- binary.
+           , iPatchPLTTypeProgbits :: Bool
+           -- ^ Whether to apply the PLTTypeProgbits patch to the input
+           -- binary.
            }
 
 -- | Options for the data extraction command
@@ -102,6 +108,14 @@ options = O.info (O.helper <*> O.hsubparser parser)
                            <> O.metavar "SECTION"
                            <> O.help "The name of the section to treat as the \".text\" section of the input binary"
                            ))
+                       <*> O.flag False True
+                           ( O.long "patch-got-section-flags"
+                           <> O.help "Whether to force the .got section to have Write/Alloc flags only"
+                           )
+                       <*> O.flag False True
+                           ( O.long "patch-plt-section-type"
+                           <> O.help "Whether to force the .plt section to have type PROGBITS"
+                           )
                            )
     eparser = Extract <$> (EOptions <$> O.strOption
                            ( O.long "var-mapping"

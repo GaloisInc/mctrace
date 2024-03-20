@@ -13,6 +13,7 @@ import qualified Data.ElfEdit as DE
 import qualified Data.Foldable as F
 import qualified Data.Functor.Const as C
 import qualified Data.Map.Strict as Map
+import           Data.Maybe ( catMaybes )
 import qualified Data.Parameterized.Context as Ctx
 import qualified Data.Parameterized.NatRepr as PN
 import qualified Data.Traversable as T
@@ -105,10 +106,19 @@ renovateLogger :: (PP.Pretty l) => LJ.LogAction IO (R.Diagnostic l)
 renovateLogger = LJ.LogAction $ \diag -> do
   SI.hPutStrLn SI.stderr (show (PP.pretty diag))
 
+-- | Build a list of patches to apply from the program options.
+patchesFromOptions :: O.IOptions -> [P.ElfPatch]
+patchesFromOptions iopts =
+    let pairs = [ (O.iPatchGOTSectionFlags, P.GOTSectionFlags)
+                , (O.iPatchPLTTypeProgbits, P.PLTTypeProgbits)
+                ]
+    in catMaybes [ if flag iopts then Just patch else Nothing | (flag, patch) <- pairs ]
+
 instrument :: O.IOptions -> IO ()
 instrument iopts = do
   probes <- ML.loadProbes (O.iDTraceFile iopts)
-  someHeader <- ML.loadBinary (O.iInputExecutableFile iopts) >>= P.patchElf
+  let patches = patchesFromOptions iopts
+  someHeader <- ML.loadBinary (O.iInputExecutableFile iopts) >>= P.patchElf patches
   case MCL.compileProbesLLVM "dtraceProbes" probes of
     MCL.CompiledProbes gvars gvarOffsets namedProbes llvmModule -> do
       LLT.initializeAllTargets
