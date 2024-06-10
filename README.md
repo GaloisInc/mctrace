@@ -235,7 +235,7 @@ Acknowledgements
 This material is based upon work supported by the United States Air
 Force AFRL/SBRK under Contract No. FA8649-21-P-0293, and by the Defense
 Advanced Research Projects Agency (DARPA) and Naval Information Warfare
-Center Pacific (NIWC Pacific) under Contract Numbern N66001-20-C-4027 and 140D0423C0063.
+Center Pacific (NIWC Pacific) under Contract Number N66001-20-C-4027 and 140D0423C0063.
 Any opinions, findings and conclusions or recommendations expressed in
 this material are those of the author(s) and do not necessarily reflect
 the views of the DARPA, NIWC Pacific, or its Contracting Agent, the U.S. Department of the Interior, Interior Business Center, Acquisition Services Directorate, Division III..
