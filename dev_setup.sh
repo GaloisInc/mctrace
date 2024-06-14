@@ -64,6 +64,7 @@ function in_path {
 function install_system_packages {
     notice "Installing required system packages (requires sudo)"
 
+    logged sudo apt-get update
     logged sudo apt-get install --yes \
         build-essential \
         musl-tools \
