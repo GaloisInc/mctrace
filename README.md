@@ -21,9 +21,15 @@ Development Build Instructions
 ------------------------------
 
 The development environment setup and build processes are automated.
-The build process requires Ubuntu 20.04. To perform a one-time setup of
-the development environment including the installation of LLVM, cross
-compilers, and other required tools, run the development setup script:
+System requirements for building mctrace are as follows:
+
+* OS: Ubuntu 20.04, 64-bit
+* Disk: 100 GB
+* RAM: 16 GB
+
+To perform a one-time setup of the development environment including the
+installation of LLVM, cross compilers, and other required tools, run the
+development setup script:
 
 ```
 ./dev_setup.sh
