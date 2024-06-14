@@ -4,18 +4,18 @@ Introduction
 
 This repository contains the source code and build system for the
 MCTrace binary instrumentation tool. The MCTrace tool enables users
-to modify binaries, inserting instrumentation into them in order to
-collect fine-grained tracing information. For information on the
-MCTrace tool's design and usage, please see `MCTRACE.md`. This document
-covers instructions for building MCTrace from source for development or
-releases.
+to modify binaries, inserting instrumentation into them in order
+to collect fine-grained tracing information. This document covers
+instructions for building MCTrace from source for development or
+releases. For information on the MCTrace tool's design and usage, please
+see `MCTRACE.md`.
 
 Building MCTrace
 ================
 
 MCTrace can be built for one of two purposes: either for local
 development in a Haskell build environment, or for release as a Docker
-image. Instructions for each method are detailed below.
+image. Instructions for each method are provided below.
 
 Development Build Instructions
 ------------------------------
@@ -29,7 +29,8 @@ System requirements for building mctrace are as follows:
 
 To perform a one-time setup of the development environment including the
 installation of LLVM, cross compilers, and other required tools, run the
-development setup script:
+development setup script. This script requires `sudo` privileges since
+it installs system packages.
 
 ```
 ./dev_setup.sh
@@ -85,13 +86,13 @@ This will build two docker images:
 
 - `mctrace.tar.gz`, a self-contained image that contains MCTrace, its
   dependencies, associated tools, and examples. For information on using
-  former image, please see `release/README.md`.
+  this image, please see `release/README.md`.
 
 - `mctrace-tool.tar.gz`, a minimal image containing just MCTrace and its
-  dependencies. A helper script, `release/mctrace` has been provided to
-  run the command in a container. Note that paths passed to this script
-  should be relative to the root of the repository and paths outside of
-  the repository will not accessible.
+  dependencies. A helper script, `release/mctrace`, has been provided to
+  run the command in a container based on this image. Note that paths
+  passed to this script must be relative to the root of the repository
+  and paths outside of the repository will not accessible.
 
 Status Information
 ------------------
@@ -213,10 +214,10 @@ configurations if there is one already populated for the MPC5777C. This
 may happen if you have created other projects.
 
 Select the desired configuration (likely just created), and click on the
-"PEMicro Debugger" tab. For "Interface" select the "USB Multilink..."
+"PEMicro Debugger" tab. For "Interface" select the `USB Multilink...`
 option. For port, select the port that the Multilink is connected to.
-Likely some COMX type variant. For "Device Name", be sure "MPC5777C"
-is selected and "Z7_0" for "Core". Default options should work for the
+Likely some COMX type variant. For "Device Name", be sure `MPC5777C`
+is selected and `Z7_0` for "Core". Default options should work for the
 rest. Click "Flash".
 
 A similar workflow should be possible by selecting the project,
