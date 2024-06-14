@@ -10,7 +10,7 @@ docker image load -i mctrace.tar.gz
 docker run -it -w /mctrace-test mctrace
 ```
 
-This will drop you into a bash shell within the Docker container in the
+This will drop you into a `bash` shell within the Docker container in the
 directory `/mctrace-test` where you can use `mctrace` to instrument
 binaries. We discuss the details of the `mctrace` tool in the following
 sections. All relative paths mentioned in this document are relative to
@@ -24,22 +24,20 @@ test programs and example probes that can be used to exercise MCTrace.
 
 Two documentation files are available in the top-level directory:
 
-* `MCTRACE.md` describes the features and limitations of the current
-  MCTrace tool.
+* `MCTRACE.md` describes the features and limitations of the MCTrace
+  tool.
 
 * `DTRACE.md` describes the subset of the DTRACE language supported by
-  the current implementation
+  the current implementation.
 
 Important folders are as follows:
 
  * `examples/eval` contains a collection of probes primarily derived
-   from those provided to us by WebSensing. The probes have been
-   modified slightly after discussions with WebSensing to fit the
-   currently supported DTrace syntax in MCTrace.
+   from those provided by users.
  * `examples/full` contains source code and binaries for bundled test
    programs.
  * `examples/binaries` contains binaries from a statically compiled
-   version of GNU coreutils for use with `mctrace`.
+   version of GNU `coreutils` for use with `mctrace`.
 
 Using MCTrace in this demonstration
 -----------------------------------
@@ -70,15 +68,16 @@ mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
 - The `--var-mapping` option tells `mctrace` where to record metadata
   that allows it to later interpret the collected telemetry.
 
-The above command instruments the binary with probes that triggers
-at the start and end of the `write` function and computes timing
+The above command instruments the binary with probes that trigger
+at the start and end of the `write` function and compute timing
 information for the call. Note that the instrumentation command produces
-a significant amount of DEBUG logs, that can be ignored at the moment.
+a significant amount of log output that may be ignored.
 
 When probes call the DTrace `send` action, the current test
 implementation of `send` pushes the set of telemetry variables, in a
-compact binary format, to the standard error. A script `extractor.py`
-has been included with the image to help interpret this data.
+compact binary format, to the process's standard error. A script
+`extractor.py` has been included with the image to interpret this
+data.
 
 To invoke the instrumented binary and use the `extractor.py` script to
 decode any emitted telemetry:
@@ -86,8 +85,10 @@ decode any emitted telemetry:
     /mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1 >/dev/null | \
         extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json --extract --big-endian
 
-NOTE: if running the instrumented binary as above fails for a PPC
-binary, run this through `qemu-ppc` as follows:
+The Docker image's environment is configured to run PPC binaries such
+as this one in a PPC build of QEMU automatically. However, if that
+automatic emulation isn't working for some reason, QEMU can be run
+manually as follows:
 
     qemu-ppc /mctrace-test/examples/full/read-write-syscall-PPC.4.inst 2>&1 >/dev/null | \
         extractor.py /mctrace-test/examples/full/read-write-syscall-PPC.4.json --extract --big-endian
@@ -104,9 +105,9 @@ This produces output similar to the following:
 
 - Note that `2>&1 >/dev/null` has the effect of piping the standard
   error to the next command while suppressing the standard output of the
-  command. We do this because the provided platform API implementations
-  writes `send()` data to `stderr` and we need that data to be piped to
-  the extractor script.
+  command. This is done this because the provided platform API
+  implementations write `send()` data to `stderr` and the resulting
+  telemetry data needs to be piped to the extractor script.
 
 - When extracting telemetry data from instrumented PowerPC binaries, the
   flag `--big-endian` must be passed to the extractor script as in the
@@ -114,7 +115,7 @@ This produces output similar to the following:
   binaries.
 
 - The `extractor.py` script offers a few other conveniences when
-  extracting data from instrumented programs; for example it can produce
+  extracting data from instrumented programs; for example, it can produce
   columnar outputs and filter columns. See `extractor.py --help` for
   details on these options.
 
