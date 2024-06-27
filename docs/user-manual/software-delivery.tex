@@ -3,8 +3,8 @@
 \label{sec:mctrace}
 
 This section describes the MCTrace tool, including its execution
-environment and requirements.  The information in this section can also
-be found in the repository at the top level, in the file
+environment and requirements. The information in this section
+can also be found in the repository at the top level in the file
 \texttt{MCTRACE.md}.
 
 For instructions on how to build MCTrace, see
@@ -15,10 +15,10 @@ Section~\ref{sec:building-mctrace}.
 
 The MCTrace tool enables users to insert instrumentation into binaries
 in order to collect fine-grained tracing information. MCTrace functions
-similarly to DTrace but does not require any operating support (or even
-an operating system). The input format of MCTrace is a subset of the
-DTrace probe script language. Prior knowledge of DTrace concepts and
-terminology is assumed in this document.
+similarly to DTrace but does not require any operating system support.
+The input format of MCTrace is a subset of the DTrace probe script
+language. Prior knowledge of DTrace concepts and terminology is assumed
+in this document.
 
 \subsection{Concept of Operations}
 \label{sec:concept-operations}
@@ -48,29 +48,28 @@ Using MCTrace requires:
   modify the provided ELF binary.
 \end{itemize}
 
-MCTrace works by producing a modified version of its input binary that
-calls Dtrace probes at the points described in the DTrace probe script.
-MCTrace compiles DTrace probe scripts into native code using a compiler
-backend (e.g., LLLVM). It then uses binary rewriting to insert the
-generated probes into the binary. Through static analysis, it identifies
-program locations corresponding to DTrace probe target sites; at each
-target site, it inserts calls to the compiled probes.
+MCTrace works by compiling a DTrace probe script into native code using
+a compiler backend (e.g., LLVM). It then uses binary rewriting to
+insert the generated probes into the binary at points indicated by the
+probe script. Through static analysis, it identifies program locations
+corresponding to DTrace probe providers; at each provider site, it
+inserts calls to the compiled probes.
 
-Some supported DTrace language features require access to
-platform-specific functionality such as memory allocation. Since the
-DTrace code will run within the context of the modified binary rather
-than an operating system kernel, MCTrace requires some additional code
-to provide access to such platform-specific features. The MCTrace tool
+Some supported DTrace language features need access to platform-specific
+functionality such as memory allocation. Since the DTrace code
+will run within the context of the modified binary rather than an
+operating system kernel, MCTrace requires some additional code to
+provide access to such platform-specific features. The MCTrace tool
 provides the input program with access to this platform-specific
 functionality by way of an object file of compiled code called the
-Platform Implementation. This object code that implements the required
+Platform Implementation. The object code that implements the required
 functions must conform to a set of C function prototypes called the
-Platform API. A complete implementation of the Platform API must provide
-implementations of all of the functions the in header file
-\texttt{mctrace/tests/library/include/platform\_api.h} provided in the MCTrace
-GitHub repository. Once compiled, the platform API implementation must
-be provided to the \texttt{mctrace} as the \texttt{--library} argument when invoking
-the \texttt{mctrace} tool.
+Platform API. A complete implementation of the Platform API must
+provide implementations of all of the functions the in header file
+\texttt{mctrace/tests/library/include/platform\_api.h} provided in the
+MCTrace GitHub repository (also in \texttt{library/include} in the
+release Docker image) . Once compiled, the platform API implementation
+must be provided to \texttt{mctrace} as the \texttt{--library} argument.
 
 For demonstration purposes, simple platform API implementations for
 PowerPC and x86\_64 Linux user-space are available in the repository
@@ -197,10 +196,10 @@ In addition to the core DTrace language features listed above,
 \subsection{Current Limitations of MCTrace}
 \label{sec:curr-limit-mctr}
 
-As of the Phase 2 release (7/28/23), MCTrace has the following limitations:
+MCTrace has the following limitations:
 \begin{itemize}
 \item MCTrace supports only statically-linked input binaries.
-\item In the current implementation, \texttt{arg0} always returns a 32-bit value
+\item \texttt{arg0} always returns a 32-bit value
    (on both PowerPC and x86\_64 platforms). Similarly, \texttt{copyint32}
    takes a 32-bit address as its input on both platforms (and returns
    a 32-bit value). As a result, these work best on the PowerPC 32-bit
