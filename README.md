@@ -4,18 +4,18 @@ Introduction
 
 This repository contains the source code and build system for the
 MCTrace binary instrumentation tool. The MCTrace tool enables users
-to modify binaries, inserting instrumentation into them in order to
-collect fine-grained tracing information. For information on the
-MCTrace tool's design and usage, please see `MCTRACE.md`. This document
-covers instructions for building MCTrace from source for development or
-releases.
+to modify binaries, inserting instrumentation into them in order
+to collect fine-grained tracing information. This document covers
+instructions for building MCTrace from source for development or
+releases. For information on the MCTrace tool's design and usage, please
+see `MCTRACE.md`.
 
 Building MCTrace
 ================
 
 MCTrace can be built for one of two purposes: either for local
 development in a Haskell build environment, or for release as a Docker
-image. Instructions for each method are detailed below.
+image. Instructions for each method are provided below.
 
 Development Build Instructions
 ------------------------------
@@ -29,7 +29,8 @@ System requirements for building mctrace are as follows:
 
 To perform a one-time setup of the development environment including the
 installation of LLVM, cross compilers, and other required tools, run the
-development setup script:
+development setup script. This script requires `sudo` privileges since
+it installs system packages.
 
 ```
 ./dev_setup.sh
@@ -85,13 +86,13 @@ This will build two docker images:
 
 - `mctrace.tar.gz`, a self-contained image that contains MCTrace, its
   dependencies, associated tools, and examples. For information on using
-  former image, please see `release/README.md`.
+  this image, please see `release/README.md`.
 
 - `mctrace-tool.tar.gz`, a minimal image containing just MCTrace and its
-  dependencies. A helper script, `release/mctrace` has been provided to
-  run the command in a container. Note that paths passed to this script
-  should be relative to the root of the repository and paths outside of
-  the repository will not accessible.
+  dependencies. A helper script, `release/mctrace`, has been provided to
+  run the command in a container based on this image. Note that paths
+  passed to this script must be relative to the root of the repository
+  and paths outside of the repository will not accessible.
 
 Status Information
 ------------------
@@ -213,10 +214,10 @@ configurations if there is one already populated for the MPC5777C. This
 may happen if you have created other projects.
 
 Select the desired configuration (likely just created), and click on the
-"PEMicro Debugger" tab. For "Interface" select the "USB Multilink..."
+"PEMicro Debugger" tab. For "Interface" select the `USB Multilink...`
 option. For port, select the port that the Multilink is connected to.
-Likely some COMX type variant. For "Device Name", be sure "MPC5777C"
-is selected and "Z7_0" for "Core". Default options should work for the
+Likely some COMX type variant. For "Device Name", be sure `MPC5777C`
+is selected and `Z7_0` for "Core". Default options should work for the
 rest. Click "Flash".
 
 A similar workflow should be possible by selecting the project,
@@ -241,16 +242,28 @@ Acknowledgements
 This material is based upon work supported by the United States Air
 Force AFRL/SBRK under Contract No. FA8649-21-P-0293, and by the Defense
 Advanced Research Projects Agency (DARPA) and Naval Information Warfare
-Center Pacific (NIWC Pacific) under Contract Number N66001-20-C-4027 and 140D0423C0063.
-Any opinions, findings and conclusions or recommendations expressed in
-this material are those of the author(s) and do not necessarily reflect
-the views of the DARPA, NIWC Pacific, or its Contracting Agent, the U.S. Department of the Interior, Interior Business Center, Acquisition Services Directorate, Division III..
+Center Pacific (NIWC Pacific) under Contract Number N66001-20-C-4027 and
+140D0423C0063. Any opinions, findings and conclusions or recommendations
+expressed in this material are those of the author(s) and do not
+necessarily reflect the views of the DARPA, NIWC Pacific, or its
+Contracting Agent, the U.S. Department of the Interior, Interior
+Business Center, Acquisition Services Directorate, Division III.
 
 SBIR DATA RIGHTS  
 Contract No. 140D0423C0063  
 Contractor Name: Galois, Inc.  
 Contractor Address: 421 SW Sixth Ave., Suite 300, Portland, OR 97204  
 Expiration of SBIR Data Protection Period: 06/07/2042  
-The Government's rights to use, modify, reproduce, release, perform, display, or disclose technical data or computer software marked with this legend are restricted during the period shown as provided in paragraph (b)(5) of the Rights in Noncommercial Technical Data and Computer Software-Small Business Innovation Research (SBIR) Program clause contained in the above identified contract. After the expiration date shown above, the Government has perpetual government purpose rights as provided in paragraph (b)(5) of that clause. Any reproduction of technical data, computer software, or portions thereof marked with this legend must also reproduce the markings.
+
+The Government's rights to use, modify, reproduce, release, perform,
+display, or disclose technical data or computer software marked with
+this legend are restricted during the period shown as provided in
+paragraph (b)(5) of the Rights in Noncommercial Technical Data and
+Computer Software-Small Business Innovation Research (SBIR) Program
+clause contained in the above identified contract. After the expiration
+date shown above, the Government has perpetual government purpose rights
+as provided in paragraph (b)(5) of that clause. Any reproduction of
+technical data, computer software, or portions thereof marked with this
+legend must also reproduce the markings.
 
 (c) 2022-2024 Galois, Inc.

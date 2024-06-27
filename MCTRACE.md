@@ -3,11 +3,11 @@ Introduction
 ============
 
 The MCTrace tool enables users to insert instrumentation into binaries
-in order to collect fine-grained tracing information. MCTrace functions
-similarly to DTrace but does not require any operating support (or even
-an operating system). The input format of MCTrace is a subset of the
-DTrace probe script language. Prior knowledge of DTrace concepts and
-terminology is assumed in this document.
+in order to collect fine-grained tracing information about their
+execution. MCTrace functions similarly to DTrace but does not require
+any operating support (or even an operating system). The input format of
+MCTrace is a subset of the DTrace probe script language. Prior knowledge
+of DTrace concepts and terminology is assumed in this document.
 
 Concept of Operations
 =====================
@@ -37,27 +37,26 @@ Using MCTrace requires:
 * A DTrace probe script containing the probes that will be used to
   modify the provided ELF binary.
 
-MCTrace works by producing a modified version of its input binary that
-calls Dtrace probes at the points described in the DTrace probe script.
-MCTrace compiles DTrace probe scripts into native code using a compiler
-backend (e.g., LLVM). It then uses binary rewriting to insert the
-generated probes into the binary. Through static analysis, it identifies
-program locations corresponding to DTrace probe providers; at each
-provider site, it inserts calls to the compiled probes.
+MCTrace works by compiling a DTrace probe script into native code using
+a compiler backend (e.g., LLVM). It then uses binary rewriting to
+insert the generated probes into the binary at points indicated by the
+probe script. Through static analysis, it identifies program locations
+corresponding to DTrace probe providers; at each provider site, it
+inserts calls to the compiled probes.
 
 Some supported DTrace language features need access to platform-specific
-functionality such as memory allocation. Since the DTrace code will run
-within the context of the modified binary rather than an operating
-system kernel, MCTrace requires some additional code to provide access
-to such platform-specific features. The MCTrace tool provides the input
-program with access to this platform-specific functionality by way of an
-object file of compiled code called the Platform Implementation. The
-object code that implements the required functions must conform to a set
-of C function prototypes called the Platform API. A complete
-implementation of the Platform API must provide implementations of all
-of the functions the in header file
+functionality such as memory allocation. Since the DTrace code
+will run within the context of the modified binary rather than an
+operating system kernel, MCTrace requires some additional code to
+provide access to such platform-specific features. The MCTrace tool
+provides the input program with access to this platform-specific
+functionality by way of an object file of compiled code called the
+Platform Implementation. The object code that implements the required
+functions must conform to a set of C function prototypes called the
+Platform API. A complete implementation of the Platform API must
+provide implementations of all of the functions the in header file
 `mctrace/tests/library/include/platform_api.h` provided in the MCTrace
-GitHub repository (also in `library\include` in the release Docker
+GitHub repository (also in `library/include` in the release Docker
 image) . Once compiled, the platform API implementation must be provided
 to the `mctrace` as the `--library` argument when invoking the `mctrace`
 tool.
@@ -94,7 +93,7 @@ DTrace global variables (containing only `read_calls` in this case) is
 then transmitted as telemetry according to the platform implementation
 of `send()`.
 
-Once the probes are written, `mctrace` would be invoked as follows.
+Once the probes are written, `mctrace` would be invoked as follows:
 
 - The `foo` binary and the `probes.d` probe script are provided to
   `mctrace` as inputs.
@@ -122,9 +121,9 @@ $ ./foo.instrumented 2>telemetry.bin
 ```
 
 Once the instrumented binary has finished running, the file
-`telemetry.bin` will contain the binary telemetry data corresponding
-to the value of `read_calls` after each invocation of the probe. The
-telemetry data must be decoded:
+`telemetry.bin` in this case will contain the binary telemetry data
+corresponding to the value of `read_calls` after each invocation of the
+probe. The telemetry data must be decoded:
 
 ```
 $ extractor.py foo.mapping.json --columns < telemetry.bin
@@ -155,23 +154,24 @@ MCTrace has the following limitations:
    a 32-bit value). As a result, these work best on the PowerPC 32-bit
    platform since the argument and return value width match the
    architecture.
- - Platform API implementations are subject to the following
-   restrictions:
-   - The Platform API implementation must be provided as a single object file
-     to MCTrace.
-   - The Platform API implementation must be self-contained. From a technical
-     point-of-view, we require that the `.text` section of the object file
-     contains code that does not refer to anything outside of that section.
-     In essence this implies that:
-      - Functions cannot make use of global variables.
-      - Functions in the implementation are allowed to call other functions
-        in the object file, but cannot call functions outside of it, including
-        functions from the standard library.  NOTE: syscalls are
-        supported.  See the architecture-appropriate version of
-        `platform_api.c` for examples.
-      - We require that the calls between functions be made via direct relative
-        offsets (and not via relocation tables).
-      - The precise mechanism to induce a compiler to generate calls using relative
-        offsets are somewhat compiler and platform specific, however `gcc`
-        on both `x86-64` and PowerPC 32-bit platforms appear to generate such code
-        as long as the functions being called have a `static` scope.  
+
+Platform API implementations are subject to the following restrictions:
+
+- The Platform API implementation must be provided as a single object
+  file to MCTrace.
+- The Platform API implementation must be self-contained. From a
+  technical point of view, this means that the `.text` section of the
+  object file contains code that does not refer to anything outside of
+  that section. In essence this implies that:
+   - Functions cannot make use of global variables.
+   - Functions in the implementation are allowed to call other functions
+     in the object file, but cannot call functions outside of it,
+     including functions from the standard library. Note that system
+     calls are supported. See the architecture-appropriate version of
+     `platform_api.c` for examples.
+   - Calls between functions must made via direct relative offsets (and
+     not via relocation tables).
+   - The precise mechanism to induce a compiler to generate calls using
+     relative offsets is compiler- and platform-specific; however, `gcc`
+     on both `x86-64` and PowerPC 32-bit platforms generates such code
+     as long as the functions being called have a `static` scope.
