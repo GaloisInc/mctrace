@@ -2,44 +2,42 @@
 \label{sec:user-release}
 
 This section describes how to run the standalone Docker image for
-MCTrace described in Section~\ref{sec:introduction}.   Much of this
-information is also available in the repository as
-\texttt{release/README.md}, or in the standalone Docker image itself, as
-\texttt{README.md}, at the top level.
+MCTrace described in Section~\ref{sec:introduction}. This information is
+also available in the repository in \texttt{release/README.md} or in the
+standalone Docker image itself in the file \texttt{README.md} at the top
+level.
 
 To load and run the image, run the following commands from a directory
-containing the image, using the filename \texttt{mctrace.tar.gz}
+containing the image, using the filename \texttt{mctrace.tar.gz}.
 
 \begin{verbatim}
 docker image load -i mctrace.tar.gz
 docker run -it -w /mctrace-test mctrace
 \end{verbatim}
 
-This will drop you into a bash shell within the Docker container in the
-directory \texttt{mctrace-test} where you can use \texttt{mctrace} to instrument
-binaries.  All relative paths mentioned in this section are relative to
-\texttt{mctrace-test}.
+This will give a \texttt{bash} shell within the Docker container in the
+directory \texttt{mctrace-test} where \texttt{mctrace} can be used to
+instrument binaries. All relative paths mentioned in this section are
+relative to \texttt{mctrace-test}.
 
 \subsection{Docker Image Contents}
 
 The docker image contains PowerPC and x86\_64 test programs and example
-probes that can be used to exercise MCTrace.  Important folders are as
-follows:
+probes that can be used to exercise MCTrace. Important directories are
+as follows:
 \begin{itemize}
 \item \texttt{examples/eval} contains a collection of probes primarily derived
-   from those provided to us by WebSensing. The probes have been
-   modified slightly after discussions with WebSensing to fit the
-  currently supported DTrace syntax in MCTrace.
+   from those provided by WebSensing.
 \item \texttt{examples/full} contains source code and binaries for bundled test
    programs.
 \item \texttt{examples/binaries} contains binaries from a statically compiled
-   version of GNU coreutils for use with \texttt{mctrace}.
+   version of GNU \texttt{coreutils} for use with \texttt{mctrace}.
  \end{itemize}
  
 \subsection{Using MCTrace in this demonstration}
 
-The \texttt{mctrace} tool is in the shell \texttt{PATH} when running within Docker,
-so no special steps are needed to be able to invoke the executable.
+The \texttt{mctrace} tool is in the shell \texttt{PATH} when running within Docker
+so no special steps are needed to be able to invoke the executable within Docker.
 For instructions on how to run the \texttt{mctrace} tool with the appropriate
 command-line arguments, see \texttt{MCTRACE.md} included in the Docker image.
 
@@ -69,12 +67,13 @@ mctrace instrument --binary=/mctrace-test/examples/full/read-write-syscall-PPC \
 The above command instruments the binary with probes that triggers
 at the start and end of the \texttt{write} function and computes timing
 information for the call. Note that the instrumentation command produces
-a significant amount of DEBUG logs, that can be ignored at the moment.
+a significant amount of debugging log output that can be ignored.
 
-When probes call the DTrace \texttt{send} action, the current test
-implementation of \texttt{send} pushes the set of telemetry variables, in a
-compact binary format, to the standard error. A script \texttt{extractor.py}
-has been included with the image to help interpret this data.
+When probes call the DTrace \texttt{send} action, the test
+implementation of \texttt{send} pushes the set of telemetry variables,
+in a compact binary format, to the standard error file descriptor.
+A script \texttt{extractor.py} has been included with the image to
+interpret this data.
 
 To invoke the instrumented binary and use the \texttt{extractor.py} script to
 decode any emitted telemetry:
@@ -97,9 +96,9 @@ This produces output similar to the following:
 
 Note that \texttt{2>\&1 >/dev/null} has the effect of piping the standard
   error to the next command while suppressing the standard output of the
-  command. We do this because the provided platform API implementations
-  writes \texttt{send()} data to \texttt{stderr} and we need that data to be piped to
-  the extractor script.
+  command. This is done because the provided platform API implementations
+  write \texttt{send()} data to \texttt{stderr} and that data needs to
+  be piped to the extractor script.
 
 When extracting telemetry data from instrumented PowerPC binaries, the
   flag \texttt{--big-endian} must be passed to the extractor script as in the
@@ -107,17 +106,16 @@ When extracting telemetry data from instrumented PowerPC binaries, the
   binaries.
 
 The \texttt{extractor.py} script offers a few other conveniences when
-  extracting data from instrumented programs; for example it can produce
+  extracting data from instrumented programs; for example, it can produce
   columnar outputs and filter columns. See \texttt{extractor.py --help} for
-  details on these options.  See 
+  details on these options.
 
-See the file README.md for a list of other binaries for PowerPC and
-x86\_64 included 
-  in the Docker image as well some example probes that can be used to
-  instrument each binary. Note that many other combinations of example
-  programs and probes can work together; the full list of combinations
-  can be found in \texttt{examples/full/Makefile}.
-  
+See the file \texttt{README.md} for a list of other binaries for
+PowerPC and x86\_64 included in the Docker image as well some example
+probes that can be used to instrument each binary. Note that many other
+combinations of example programs and probes can work together; the full
+list of combinations can be found in \texttt{examples/full/Makefile}.
+
 % \begin{center}
 %   \begin{tabular}{ |l|l| }
 %     \hline
