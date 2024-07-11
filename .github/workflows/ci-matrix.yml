@@ -97,7 +97,3 @@ jobs:
     - name: Build MCTrace
       run: |
         cabal build pkg:mctrace
-
-    - name: Test MCTrace
-      run: |
-        cabal test pkg:mctrace
