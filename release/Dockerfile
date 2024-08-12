@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS base
+FROM --platform=linux/amd64 ubuntu:22.04 AS base
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -42,7 +42,7 @@ RUN make -C mctrace/tests/full
 RUN make -C mctrace/tests/full ARCH=PPC
 
 # Final stage where we build a minimal image
-FROM ubuntu:22.04
+FROM --platform=linux/amd64 ubuntu:22.04
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive

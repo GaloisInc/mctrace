@@ -4,7 +4,7 @@
 FROM mctrace AS source
 
 # The final image will be based on ubuntu
-FROM ubuntu:22.04 as base
+FROM --platform=linux/amd64 ubuntu:22.04 as base
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive
