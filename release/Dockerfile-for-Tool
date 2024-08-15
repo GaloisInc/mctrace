@@ -1,7 +1,7 @@
 # NOTE: This file relies on the image built by the standard Dockerfile
 # under release/ and requires that its name is 'mctrace'. Use 'build.sh'
 # to build both the source image and this one.
-FROM mctrace AS source
+FROM --platform=linux/amd64 mctrace AS source
 
 # The final image will be based on ubuntu
 FROM --platform=linux/amd64 ubuntu:22.04 as base
